@@ -1,5 +1,7 @@
 # Colors
-cpurple = "#8d62a9"
+#cpurple = "#8d62a9"
+cpurple = "#7a38a6"
+cblack = "#1b1f26"
 
 layout = {
     "margin": 8,

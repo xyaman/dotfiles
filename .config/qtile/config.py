@@ -3,14 +3,13 @@ from libqtile.lazy import lazy
 from libqtile import layout, bar, widget, hook
 
 from typing import List
-
+import subprocess
 
 # My imports
-import subprocess
 import theme
 
 mod = "mod1"
-terminal = "termite -e /usr/bin/zsh"
+terminal = "termite"
 
 @hook.subscribe.startup_once
 def autostart():
@@ -53,15 +52,6 @@ keys = [
     Key([mod], "Tab", lazy.next_layout()),
     Key([mod, "shift"], "w", lazy.window.kill()),
 
-    # Sound keys 
-    Key([], "XF86AudioRaiseVolume", lazy.spawn("amixer set Master 2%+ -q")),
-    Key([], "XF86AudioLowerVolume", lazy.spawn("amixer set Master 2%- -q")),
-    Key([], "XF86AudioMute", lazy.spawn("amixer set Master toggle -q")),
-
-    # Laptop brightness keys
-    Key([], "XF86MonBrightnessUp", lazy.spawn("xbacklight -inc 11")),
-    Key([], "XF86MonBrightnessDown", lazy.spawn("xbacklight -dec 11")), 
-
     Key([mod, "control"], "r", lazy.restart()),
     Key([mod, "control"], "q", lazy.shutdown()),
     Key([mod], "d", lazy.spawn("dmenu_run")),
@@ -92,16 +82,16 @@ widget_defaults = dict(
 extension_defaults = widget_defaults.copy()
 
 colors_left = {
-    "background": "#282a36",
+    "background": theme.cblack,
 }
 
 colors_right = {
-    "background": "#8d62a9"
+    "background": theme.cpurple
 }
 
 sep_right = {
-    "background": "#8d62a9",
-    "foreground": "#282a36",
+    "background": theme.cpurple,
+    "foreground": theme.cblack,
     "padding": 15
 }
 
@@ -110,7 +100,7 @@ screens = [
         top=bar.Bar(
             [
                 widget.CurrentLayout(**colors_left),
-                widget.GroupBox(highlight_color=colors_right["background"], this_current_screen_border=colors_right["background"], highlight_method="line",**colors_left),
+                widget.GroupBox(highlight_color=theme.cpurple, this_current_screen_border=theme.cpurple, highlight_method="line",**colors_left),
                 widget.WindowName(**colors_left),
                 widget.TextBox(background=colors_left["background"], foreground=colors_right["background"], text="", fontsize=57, padding=0),
                 widget.Volume(**colors_right, fmt=" {}"),
@@ -119,7 +109,7 @@ screens = [
                 widget.Sep(**sep_right),
                 widget.Memory(fmt="  {}", **colors_right),
                 widget.Sep(**sep_right),
-                widget.ThermalSensor(tag_sensor="Tdie", fmt=" {}", **colors_right),
+                widget.Pacman(fmt="Updates: {}", **colors_right),
                 widget.Sep(**sep_right),
                 widget.Battery(format=" {percent: 2.0%}", **colors_right),
                 widget.Sep(**sep_right),
