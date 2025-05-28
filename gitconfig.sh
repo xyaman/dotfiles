@@ -26,5 +26,6 @@ git config --global core.editor "nvim"
 git config --global core.autocrlf "input"
 git config --global push.default "simple"
 git config --global init.defaultBranch "main"
+git config --global commit.template "~/dotfiles/.gitmessage"
 
 echo "Don't forget to add gpg commit signing"
