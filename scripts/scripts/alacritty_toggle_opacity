@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+## If alacritty.yml does not exist, raise an alert
+[[ ! -f ~/.config/alacritty/alacritty.toml ]] && \
+    notify-send "alacritty.toml does not exist" && exit 0
+
+## Fetch background_opacity from alacritty.toml
+opacity=$(awk '$1 == "opacity" {print $3; exit}' \
+    ~/.config/alacritty/alacritty.toml)
+
+## Define variables
+on=0.95
+off=1
+
+## Assign toggle opacity value
+case $opacity in
+  $off)
+    toggle_opacity=$on
+    ;;
+  *)
+    toggle_opacity=1
+    ;;
+esac
+
+
+sed -i -- "s/opacity = $opacity/opacity = $toggle_opacity/" \
+    ~/.config/alacritty/alacritty.toml
+
+notify-send "alacritty opacity set to $toggle_opacity"
