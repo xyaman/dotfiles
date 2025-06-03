@@ -21,9 +21,7 @@ vim.o.laststatus = 3
 
 -- show always signcolumn (default = auto)
 vim.wo.signcolumn = "yes"
-
--- see `keymaps.lua`
--- vim.opt.hlsearch = false
+vim.opt.hlsearch = false
 
 -- Sets how neovim will display certain whitespace characters in the editor.
 -- See `:help 'list'`
