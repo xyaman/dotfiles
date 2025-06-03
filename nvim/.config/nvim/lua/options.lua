@@ -23,6 +23,9 @@ vim.o.laststatus = 3
 vim.wo.signcolumn = "yes"
 vim.opt.hlsearch = false
 
+-- Save undo history.
+vim.o.undofile = true
+
 -- Folding.
 vim.o.foldcolumn = "1"
 vim.o.foldlevelstart = 99
