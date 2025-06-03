@@ -23,6 +23,23 @@ vim.o.laststatus = 3
 vim.wo.signcolumn = "yes"
 vim.opt.hlsearch = false
 
+-- Folding.
+vim.o.foldcolumn = "1"
+vim.o.foldlevelstart = 99
+vim.wo.foldtext = ""
+vim.opt.foldmethod = "expr"
+vim.opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
+
+-- UI characters.
+vim.opt.fillchars = {
+    eob = " ",
+    fold = " ",
+    foldclose = require("icons").symbol_kinds.Module,
+    foldopen = " ",
+    foldsep = " ",
+    msgsep = "─",
+}
+
 -- Sets how neovim will display certain whitespace characters in the editor.
 -- See `:help 'list'`
 -- and `:help 'listchars'`
