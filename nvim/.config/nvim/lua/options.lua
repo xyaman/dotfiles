@@ -37,8 +37,8 @@ vim.opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
 vim.opt.fillchars = {
     eob = " ",
     fold = " ",
-    foldclose = require("icons").symbol_kinds.Module,
-    foldopen = " ",
+    foldclose = require("icons").arrows.right,
+    foldopen = require("icons").arrows.down,
     foldsep = " ",
     msgsep = "─",
 }
