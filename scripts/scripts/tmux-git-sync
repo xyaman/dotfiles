@@ -1,0 +1,31 @@
+#!/bin/bash
+
+cd "$1" || exit
+
+# skip if not a git repo
+git rev-parse --is-inside-work-tree &>/dev/null || exit
+
+# get current branch
+branch=$(git rev-parse --abbrev-ref HEAD)
+
+# get upstream tracking branch
+upstream=$(git rev-parse --abbrev-ref --symbolic-full-name "@{u}" 2>/dev/null) || exit
+
+# fetch from remote (with timeout)
+timeout 3 git fetch --quiet origin &>/dev/null
+
+# get commit hashes
+local_commit=$(git rev-parse "$branch" 2>/dev/null)
+remote_commit=$(git rev-parse "$upstream" 2>/dev/null)
+base_commit=$(git merge-base "$branch" "$upstream" 2>/dev/null)
+
+# compare
+if [ "$local_commit" = "$remote_commit" ]; then
+    echo "$branch ✓"
+elif [ "$local_commit" = "$base_commit" ]; then
+    echo "$branch ⇣"
+elif [ "$remote_commit" = "$base_commit" ]; then
+    echo "$branch ⇡"
+else
+    echo "$branch ⇕"
+fi
