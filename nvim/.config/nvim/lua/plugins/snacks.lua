@@ -4,13 +4,10 @@ return {
     lazy = false,
     ---@type snacks.Config
     opts = {
-        -- your configuration comes here
-        -- or leave it empty to use the default settings
-        -- refer to the configuration section below
         statuscolumn = { enabled = false },
-        dashboard = { enabled = true },
         picker = { enabled = true },
 
+        dashboard = { enabled = false },
         bigfile = { enabled = false },
         explorer = { enabled = false },
         indent = { enabled = false },
@@ -26,28 +23,28 @@ return {
         {
             "<leader>tt",
             function()
-                Snacks.picker.files()
+                Snacks.picker.files({ layout = "ivy" })
             end,
             desc = "Picker Files",
         },
         {
             "<leader>tg",
             function()
-                Snacks.picker.grep()
+                Snacks.picker.grep({ layout = "ivy" })
             end,
             desc = "Picker Grep",
         },
         {
             "<leader>th",
             function()
-                Snacks.picker.help()
+                Snacks.picker.help({ layout = "ivy" })
             end,
             desc = "Picker help",
         },
         {
             "<leader>tv",
             function()
-                Snacks.picker.files({ cwd = vim.fn.stdpath("config") })
+                Snacks.picker.files({ cwd = vim.fn.stdpath("config"), layout = "ivy" })
             end,
             desc = "Find Config File",
         },
