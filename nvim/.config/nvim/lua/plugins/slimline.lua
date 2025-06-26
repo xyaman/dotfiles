@@ -10,6 +10,9 @@ return {
             diagnostics = {
                 workspace = true,
             },
+            mode = {
+                verbose = true,
+            },
             filetype_lsp = {
                 hl = {
                     secondary = "Normal",
