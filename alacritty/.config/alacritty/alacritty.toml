@@ -1,4 +1,5 @@
-general.import = [ "~/.config/alacritty/oh-lucy-evening.theme.toml"]
+# general.import = [ "~/.config/alacritty/oh-lucy-evening.theme.toml"]
+general.import = [ "~/.config/alacritty/vague.toml"]
 
 [window]
 opacity = 0.95
