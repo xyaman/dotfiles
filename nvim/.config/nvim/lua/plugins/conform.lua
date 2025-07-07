@@ -11,7 +11,7 @@ return {
             html = { "prettierd", "prettier", stop_after_first = true },
             php = { "php-cs-fixer", fallback = "lsp" },
             zig = { "zigfmt", fallback = "lsp" },
-            ruby = { "rubocop", fallback = "lsp" },
+            rust = { "rustfmt", fallback = "lsp" },
             -- For filetypes without a formatter:
             ["_"] = { "trim_whitespace", "trim_newlines" },
         },
