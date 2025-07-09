@@ -24,8 +24,9 @@ require("lazy").setup("plugins", {
     rocks = { enabled = false },
 })
 
--- vim.cmd.colorscheme("oh-lucy-evening") -- If i dont do this first, vague is not being loaded, idk why
-vim.cmd.colorscheme("vague")
+vim.g.zenbones_compat = 1
+vim.cmd.colorscheme("oh-lucy-evening") -- If i dont do this first, vague is not being loaded, idk why
+vim.cmd.colorscheme("minimal")
 
 -- set treesitter context highlight
 vim.api.nvim_set_hl(0, "TreesitterContextBottom", { underline = true, sp = "#6D5978" })
