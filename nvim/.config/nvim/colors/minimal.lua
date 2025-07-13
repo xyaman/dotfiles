@@ -3,7 +3,7 @@ require("mini.base16").setup({
         base00 = "#181818", -- background (gray)
         base01 = "#232323", -- lighter background (gray)
         base02 = "#2e2e2e", -- selection background (gray)
-        base03 = "#444444", -- comments, invisibles (gray)
+        base03 = "#707070", -- comments, invisibles (gray)
         base04 = "#b0b0b0", -- dark foreground (gray)
         base05 = "#d0d0d0", -- default foreground (gray)
         base06 = "#e0e0e0", -- light foreground (gray)
@@ -13,7 +13,7 @@ require("mini.base16").setup({
         base0A = "#c6c6c6", -- white 2
         base0B = "#e5c07b", -- yellow
         base0C = "#888888", -- gray
-        base0D = "#888888", -- gray
+        base0D = "#d0d0d0", -- functions
         base0E = "#888888", -- gray
         base0F = "#888888", -- gray
     },

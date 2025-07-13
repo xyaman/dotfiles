@@ -64,6 +64,7 @@ vim.api.nvim_create_autocmd("TextYankPost", {
 })
 
 -- Global variables (Languages ex.)
+vim.cmd([[autocmd FileType ruby setlocal indentkeys-=.]]) -- ruby indenting
 vim.cmd([[ au BufRead,BufNewFile *.zon setfiletype zig ]])
 vim.filetype.add({
     pattern = { [".*/hypr/.*%.conf"] = "hyprlang" },

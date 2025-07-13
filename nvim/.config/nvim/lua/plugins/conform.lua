@@ -9,6 +9,7 @@ return {
             typescriptreact = { "prettierd", "prettier", stop_after_first = true },
             javascriptreact = { "prettierd", "prettier", stop_after_first = true },
             html = { "prettierd", "prettier", stop_after_first = true },
+            css = { "prettierd", "prettier", stop_after_first = true },
             php = { "php-cs-fixer", fallback = "lsp" },
             zig = { "zigfmt", fallback = "lsp" },
             rust = { "rustfmt", fallback = "lsp" },
