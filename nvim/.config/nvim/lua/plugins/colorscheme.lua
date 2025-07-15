@@ -11,5 +11,16 @@ return {
             vim.cmd("colorscheme vague")
         end,
     },
-    { "echasnovski/mini.base16", version = false },
+    {
+        "projekt0n/github-nvim-theme",
+        name = "github-theme",
+        opts = {
+            specs = {
+                github_dark_default = {
+                    bg0 = "#1d1d2b",
+                    bg1 = "#151b23",
+                },
+            },
+        },
+    },
 }
