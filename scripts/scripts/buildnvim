@@ -9,16 +9,16 @@ set -eo pipefail
 function buildnvim() {
     # Make sure I cloned the thing.
     local nvim_dir="$HOME/git/neovim"
-    [ ! -d "$nvim_dir" ] && echo "You haven't cloned neovim..." && return
 
-    # Go to the neovim directory.
-    cd "$nvim_dir" || { printf '\n========== COULD NOT CD TO NEOVIM DIRECTORY ==========\n' && return; }
-
-    # Checkout the master branch.
-    git checkout master
-
-    # Fetch the latest changes.
-    git pull
+    if [ -d "$nvim_dir" ]; then
+        cd "$nvim_dir"
+        git checkout master
+        git pull
+    else
+        mkdir -p "$nvim_dir"
+        git clone https://github.com/neovim/neovim "$nvim_dir"
+        cd "$nvim_dir"
+    fi
 
     # Go back to the given commit or HEAD.
     local commit="${1:-HEAD}"
@@ -49,10 +49,8 @@ EOF
     git apply "$patch_file"
     rm -f "$patch_file"
 
-    # Build.
-    make CMAKE_BUILD_TYPE=RelWithDebInfo install
-
-    # Install
+    # Build.& Install
+    make CMAKE_BUILD_TYPE=RelWithDebInfo
     sudo make install
 
     # Remove the patched changes.
