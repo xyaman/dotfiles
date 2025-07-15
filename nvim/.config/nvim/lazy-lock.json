@@ -23,6 +23,7 @@
   "render-markdown.nvim": { "branch": "main", "commit": "24aacee83544ca113055564ed22be7852067c342" },
   "run.nvim": { "branch": "main", "commit": "863298c097466e173a8e07446d74e313c6f7d7a2" },
   "schemastore.nvim": { "branch": "main", "commit": "6af106298a8fd50af775d5281ee39a102556e352" },
+  "seoul256.vim": { "branch": "master", "commit": "d9a91d8d4e153274e1ecc0ceb05c37f0d0de84d7" },
   "slimline.nvim": { "branch": "main", "commit": "26270148dec347a9fa980a97d5e1d92362cd507b" },
   "snacks.nvim": { "branch": "main", "commit": "bc0630e43be5699bb94dadc302c0d21615421d93" },
   "undotree": { "branch": "master", "commit": "b951b87b46c34356d44aa71886aecf9dd7f5788a" },
