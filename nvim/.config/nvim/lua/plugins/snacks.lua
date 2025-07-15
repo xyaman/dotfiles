@@ -35,6 +35,15 @@ return {
             desc = "Picker Grep",
         },
         {
+            "<leader>ts",
+            function()
+                Snacks.picker.grep_word({ layout = "ivy" })
+            end,
+            desc = "Visual selection or word",
+            mode = { "n", "x" },
+        },
+
+        {
             "<leader>th",
             function()
                 Snacks.picker.help({ layout = "ivy" })
