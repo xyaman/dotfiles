@@ -22,10 +22,17 @@ ssh-add ~/.ssh/id_rsa
 echo "Here is the key: SSH key to clipboard..."
 cat ~/.ssh/id_rsa.pub
 
+echo "Enabling SSH-based commit signing..."
+git config --global gpg.format ssh
+git config --global user.signingkey "$HOME/.ssh/id_rsa.pub"
+git config --global commit.gpgsign true
+
+echo "Setting Git defaults..."
 git config --global core.editor "nvim"
 git config --global core.autocrlf "input"
 git config --global push.default "simple"
 git config --global init.defaultBranch "main"
 git config --global commit.template "~/dotfiles/.gitmessage"
 
-echo "Don't forget to add gpg commit signing"
+echo "Now add your SSH key to GitHub (https://github.com/settings/keys)"
+echo "Also add your public signing key ($HOME/.ssh/.id_rsa.pub) as a 'Signing Key'"
