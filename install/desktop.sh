@@ -1,1 +1,1 @@
-sudo pacman -S blueberry waybar hyprland less
+sudo pacman -S blueberry waybar hyprland swaybg
