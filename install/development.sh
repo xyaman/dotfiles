@@ -1,3 +1,4 @@
 yay -S --noconfirm --needed \
     clang cmake llvm mise \
-    lazygit lazydocker-bin
+    lazygit lazydocker-bin \
+    man
