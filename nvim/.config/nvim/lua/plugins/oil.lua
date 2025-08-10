@@ -2,13 +2,6 @@ return {
     "stevearc/oil.nvim",
     dependencies = {
         { "echasnovski/mini.icons", opts = {} },
-        {
-            "guptaanurag2106/run.nvim",
-            opts = {
-                ask_confirmation = false,
-                history = { enable = false },
-            },
-        },
     },
     opts = {
         columns = {
@@ -26,7 +19,6 @@ return {
             ["-"] = "actions.parent",
             ["`"] = "actions.cd",
             ["_"] = "actions.open_cwd",
-            ["<leader>rf"] = " <cmd>RunFile<CR>",
         },
     },
 }
