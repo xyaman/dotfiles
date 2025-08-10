@@ -1,6 +1,7 @@
 -- Copilot completion.
 return {
     "zbirenbaum/copilot.lua",
+    dependencies = { "nvim-lua/plenary.nvim" },
     event = "InsertEnter",
     opts = {
         panel = { enabled = false },
