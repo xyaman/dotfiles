@@ -13,6 +13,7 @@ return {
             php = { "php-cs-fixer", fallback = "lsp" },
             zig = { "zigfmt", fallback = "lsp" },
             rust = { "rustfmt", fallback = "lsp" },
+            ruby = { "rubocop", fallback = "lsp" },
             -- For filetypes without a formatter:
             ["_"] = { "trim_whitespace", "trim_newlines" },
         },
