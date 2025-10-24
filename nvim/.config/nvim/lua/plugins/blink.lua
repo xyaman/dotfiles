@@ -1,8 +1,8 @@
 return {
     "saghen/blink.cmp",
     -- optional: provides snippets for the snippet source
-    dependencies = { "rafamadriz/friendly-snippets" },
-    event = { "InsertEnter", "CmdlineEnter" },
+    dependencies = { "L3MON4D3/LuaSnip" },
+    event = { "InsertEnter" },
 
     -- use a release tag to download pre-built binaries
     version = "1.*",
@@ -15,7 +15,6 @@ return {
         -- See :h blink-cmp-config-keymap for defining your own keymap
         keymap = {
             preset = "none",
-
             ["<C-e>"] = { "hide" },
             ["<C-y>"] = { "select_and_accept" },
             ["<C-p>"] = { "select_prev", "fallback_to_mappings" },
@@ -33,15 +32,17 @@ return {
                 max_items = 15,
             },
             documentation = { auto_show = true },
+            menu = { scrollbar = false },
         },
+        snippets = { preset = "luasnip" },
+
+        -- Disable command line completion:
+        cmdline = { enabled = false },
 
         -- Default list of enabled providers defined so that you can extend it
         -- elsewhere in your config, without redefining it, due to `opts_extend`
         sources = {
             default = { "lsp", "path", "snippets", "buffer" },
-            per_filetype = {
-                ["copilot-chat"] = { "buffer" },
-            },
         },
 
         appearance = {
