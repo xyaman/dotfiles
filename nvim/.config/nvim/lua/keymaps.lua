@@ -33,6 +33,15 @@ vim.keymap.set("n", "J", "mzJ`z", opts)
 vim.keymap.set("n", "<C-d>", "<C-d>zz", opts)
 vim.keymap.set("n", "<C-u>", "<C-u>zz", opts)
 
+-- Poweful <esc>.
+vim.keymap.set({ "i", "s", "n" }, "<esc>", function()
+    if require("luasnip").expand_or_jumpable() then
+        require("luasnip").unlink_current()
+    end
+    vim.cmd("noh")
+    return "<esc>"
+end, { desc = "Escape, clear hlsearch, and stop snippet session", expr = true })
+
 -- Visual --
 -- Stay in indent mode
 vim.keymap.set("v", "<", "<gv")
@@ -56,10 +65,6 @@ vim.keymap.set("n", "<leader>gb", "<cmd>lnext<CR>zz", { desc = "Go to the next e
 -- Misc
 -- Opens replace with the word under the cursor selected
 vim.keymap.set("n", "<leader>s", [[:%s/\<<C-r><C-w>\>/<C-r><C-w>/gI]])
-
--- print php pre
--- TODO: use treesitter to print variable under cursor
-vim.keymap.set("n", "<leader>pr", 'oecho "<pre>";<CR>echo "</pre>";<Esc>Oprint_r(')
 
 -- Terminal related
 -- use ESC to return to NORMAL mode (have some problems with TUI programs, ex lazygit)

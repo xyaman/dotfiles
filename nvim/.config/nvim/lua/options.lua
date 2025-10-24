@@ -1,3 +1,5 @@
+local icons = require("icons")
+
 vim.opt.number = true -- shows line number
 vim.opt.relativenumber = true -- shows relative line numbers
 vim.opt.cursorline = true -- highlights the current line
@@ -37,10 +39,11 @@ vim.opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
 vim.opt.fillchars = {
     eob = " ",
     fold = " ",
-    foldclose = require("icons").arrows.right,
-    foldopen = require("icons").arrows.down,
+    foldclose = icons.arrows.right,
+    foldopen = icons.arrows.down,
     foldsep = " ",
     msgsep = "─",
+    foldinner = " ",
 }
 
 -- Sets how neovim will display certain whitespace characters in the editor.
@@ -65,11 +68,11 @@ vim.api.nvim_create_autocmd("TextYankPost", {
 
 -- Global variables (Languages ex.)
 vim.cmd([[autocmd FileType ruby setlocal indentkeys-=.]]) -- ruby indenting
-vim.cmd([[ au BufRead,BufNewFile *.zon setfiletype zig ]])
 vim.filetype.add({
     pattern = { [".*/hypr/.*%.conf"] = "hyprlang" },
     extension = {
         cgi = "php",
+        zon = "zig",
     },
 })
 
