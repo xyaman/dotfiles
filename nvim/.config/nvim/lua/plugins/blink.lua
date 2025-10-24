@@ -37,7 +37,7 @@ return {
         snippets = { preset = "luasnip" },
 
         -- Disable command line completion:
-        cmdline = { enabled = false },
+        -- cmdline = { enabled = false },
 
         -- Default list of enabled providers defined so that you can extend it
         -- elsewhere in your config, without redefining it, due to `opts_extend`
