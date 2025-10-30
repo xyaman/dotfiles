@@ -24,11 +24,9 @@ require("lazy").setup("plugins", {
     rocks = { enabled = false },
 })
 
--- vim.cmd.colorscheme("oh-lucy-evening") -- If i dont do this first, vague is not being loaded, idk why
-vim.cmd.colorscheme("tsoding")
-
 -- set treesitter context highlight
 vim.api.nvim_set_hl(0, "TreesitterContextBottom", { underline = true, sp = "#6D5978" })
+vim.cmd.colorscheme("tsoding")
 
 -- Enable the new experimental command-line features.
 require("vim._extui").enable({})
