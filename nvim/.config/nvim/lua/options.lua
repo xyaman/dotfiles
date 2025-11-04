@@ -23,7 +23,7 @@ vim.o.laststatus = 3
 
 -- show always signcolumn (default = auto)
 vim.wo.signcolumn = "yes"
-vim.opt.hlsearch = false
+-- vim.opt.hlsearch = false
 
 -- Save undo history.
 vim.o.undofile = true
