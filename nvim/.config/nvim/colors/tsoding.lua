@@ -20,7 +20,9 @@ local c = {
     cyan = "#46a6b2",
     orange = "#c18a56",
     purple = "#b668cd",
-    magenta = "#D16D9E",
+    magenta = "#d16d9e",
+
+    highlight = "#79bf46", -- green
 }
 
 local hl = vim.api.nvim_set_hl
@@ -38,6 +40,9 @@ hl(0, "CursorLineNr", { fg = c.yellow, bg = "NONE", bold = true })
 hl(0, "Statement", { fg = c.yellow, bg = "NONE", bold = true })
 hl(0, "CursorLine", { fg = "NONE", bg = c.gray })
 hl(0, "StatusLine", { fg = c.fg, bg = c.gray })
+
+hl(0, "CurSearch", { fg = c.bg, bg = c.highlight })
+hl(0, "IncSearch", { link = "CurSearch" })
 
 -- special words
 hl(0, "Comment", { fg = c.brown, bg = "NONE" })
