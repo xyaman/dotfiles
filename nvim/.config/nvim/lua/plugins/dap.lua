@@ -21,7 +21,22 @@
 return {
     "mfussenegger/nvim-dap",
     event = "VeryLazy",
-    dependencies = { "igorlfs/nvim-dap-view", "theHamsta/nvim-dap-virtual-text" },
+    dependencies = {
+        "igorlfs/nvim-dap-view",
+        "theHamsta/nvim-dap-virtual-text",
+        {
+            "jbyuki/one-small-step-for-vimkind",
+            keys = {
+                {
+                    "<leader>dl",
+                    function()
+                        require("osv").launch({ port = 8086 })
+                    end,
+                    desc = "Launch Lua adapter",
+                },
+            },
+        },
+    },
     config = function()
         local dap = require("dap")
         local dv = require("dap-view")
@@ -49,11 +64,19 @@ return {
             },
         }
 
-        -- dap.adapters.nlua = function(callback, config)
-        --     callback({ type = "server", host = config.host or "127.0.0.1", port = config.port or 8086 })
-        -- end
+        dap.adapters.nlua = function(callback, config)
+            callback({ type = "server", host = config.host or "127.0.0.1", port = config.port or 8086 })
+        end
 
         -- configurations
+        dap.configurations.lua = {
+            {
+                type = "nlua",
+                request = "attach",
+                name = "Attach to running Neovim instance",
+            },
+        }
+
         dap.configurations.zig = {
             {
                 name = "[codellb] launch",
