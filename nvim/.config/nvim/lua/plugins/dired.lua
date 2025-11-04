@@ -1,5 +1,6 @@
 return {
-    "X3eRo0/dired.nvim",
+    "xyaman/dired.nvim",
+    branch = "feature/override-cwd-opt",
     dependencies = "MunifTanjim/nui.nvim",
     opts = {
         path_separator = "/",
@@ -7,5 +8,6 @@ return {
         show_icons = false,
         show_hidden = true,
         show_dot_dirs = true,
+        override_cwd = false,
     },
 }
