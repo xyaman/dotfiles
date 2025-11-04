@@ -14,6 +14,7 @@ return {
             zig = { "zigfmt", fallback = "lsp" },
             rust = { "rustfmt", fallback = "lsp" },
             ruby = { "rubocop", fallback = "lsp" },
+            odin = { "odinfmt", fallback = "lsp" },
             -- For filetypes without a formatter:
             ["_"] = { "trim_whitespace", "trim_newlines" },
         },

@@ -22,5 +22,5 @@
   "overseer.nvim": { "branch": "master", "commit": "c77c78b35d0b4d244e1cd77c25ec93a16fbbfc94" },
   "schemastore.nvim": { "branch": "main", "commit": "e5ca2c40986f415398dd5711625f0099b80b28b0" },
   "slimline.nvim": { "branch": "main", "commit": "37d197329b0a65af820e794a007553aa7ef387b5" },
-  "snacks.nvim": { "branch": "main", "commit": "53d8012e5e4b2115ade2c15d040223ef97ffb05c" }
+  "snacks.nvim": { "branch": "main", "commit": "41712e3026a6d690e3c65f83b335cb34e054d2cd" }
 }
