@@ -20,7 +20,8 @@
   "nvim-treesitter-context": { "branch": "master", "commit": "ec308c7827b5f8cb2dd0ad303a059c945dd21969" },
   "one-small-step-for-vimkind": { "branch": "main", "commit": "8fdbb4ed7bd20f92d3c1344b1e619af9017c743d" },
   "overseer.nvim": { "branch": "master", "commit": "c77c78b35d0b4d244e1cd77c25ec93a16fbbfc94" },
+  "quicker.nvim": { "branch": "master", "commit": "12a2291869a326424b1cbee937f4f80334433012" },
   "schemastore.nvim": { "branch": "main", "commit": "e5ca2c40986f415398dd5711625f0099b80b28b0" },
   "slimline.nvim": { "branch": "main", "commit": "37d197329b0a65af820e794a007553aa7ef387b5" },
-  "snacks.nvim": { "branch": "main", "commit": "41712e3026a6d690e3c65f83b335cb34e054d2cd" }
+  "snacks.nvim": { "branch": "main", "commit": "53d8012e5e4b2115ade2c15d040223ef97ffb05c" }
 }

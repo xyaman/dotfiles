@@ -50,11 +50,13 @@ vim.keymap.set("v", "J", ":m '>+1<CR>gv=gv")
 vim.keymap.set("v", "K", ":m '<-2<CR>gv=gv")
 
 -- Quickfix / Location lists
-vim.keymap.set("n", "<C-q>", function()
-    local qf_winid = vim.fn.getqflist({ winid = 0 }).winid
-    local action = qf_winid > 0 and "cclose" or "copen"
-    vim.cmd("botright " .. action)
-end, { desc = "Show/Hide quickfix." })
+-- vim.keymap.set("n", "<C-q>", function()
+--     local qf_winid = vim.fn.getqflist({ winid = 0 }).winid
+--     local action = qf_winid > 0 and "cclose" or "copen"
+--     vim.cmd(action)
+--
+--     -- vim.cmd("botright " .. action)
+-- end, { desc = "Show/Hide quickfix." })
 
 vim.keymap.set("n", "<M-k>", "<cmd>cprev<CR>zz", { desc = "Go to the prev element in the quickfix." })
 vim.keymap.set("n", "<M-j>", "<cmd>cnext<CR>zz", { desc = "Go to the next element in the quickfix." })
