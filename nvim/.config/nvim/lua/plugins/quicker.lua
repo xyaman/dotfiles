@@ -7,7 +7,7 @@ return {
     opts = {},
     keys = {
         {
-            "<leader>q",
+            "<C-q>",
             function()
                 require("quicker").toggle()
             end,

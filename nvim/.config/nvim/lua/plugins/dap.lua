@@ -1,58 +1,72 @@
--- -- Set up icons.
--- local icons = {
---     Stopped = { "", "DiagnosticWarn", "DapStoppedLine" },
---     Breakpoint = "",
---     BreakpointCondition = "",
---     BreakpointRejected = { "", "DiagnosticError" },
---     LogPoint = "",
+-- Set up icons.
+local icons = {
+    Stopped = { "", "DiagnosticWarn", "DapStoppedLine" },
+    Breakpoint = "",
+    BreakpointCondition = "",
+    BreakpointRejected = { "", "DiagnosticError" },
+    LogPoint = "",
+}
 
--- }
+for name, sign in pairs(icons) do
+    sign = type(sign) == "table" and sign or { sign }
+    vim.fn.sign_define("Dap" .. name, {
+        text = sign[1] .. " ",
+        texthl = sign[2] or "DiagnosticInfo",
+        linehl = sign[3],
+        numhl = sign[3],
+    })
+end
 
--- for name, sign in pairs(icons) do
---     sign = type(sign) == "table" and sign or { sign }
---     vim.fn.sign_define("Dap" .. name, {
---         -- stylua: ignore
---         text = sign[1] --[[@as string]] .. ' ',
---         texthl = sign[2] or "DiagnosticInfo",
---         linehl = sign[3],
---         numhl = sign[3],
---     })
--- end
 return {
     "mfussenegger/nvim-dap",
     event = "VeryLazy",
     dependencies = {
         "igorlfs/nvim-dap-view",
         "theHamsta/nvim-dap-virtual-text",
-        {
-            "jbyuki/one-small-step-for-vimkind",
-            keys = {
-                {
-                    "<leader>dl",
-                    function()
-                        require("osv").launch({ port = 8086 })
-                    end,
-                    desc = "Launch Lua adapter",
-                },
-            },
-        },
+        "jbyuki/one-small-step-for-vimkind",
     },
     config = function()
         local dap = require("dap")
         local dv = require("dap-view")
+        local osv = require("osv")
 
         dv.setup({
             winbar = {
-                sections = { "scopes", "breakpoints", "threads", "exceptions", "repl", "console" },
+                sections = { "scopes", "breakpoints", "threads", "repl" },
                 default_section = "scopes",
+                controls = { enabled = true },
             },
             windows = { height = 12 },
-            -- When jumping through the call stack, try to switch to the buffer if already open in
-            -- a window, else use the last window to open the buffer.
             switchbuf = "usetab,uselast",
         })
 
         require("nvim-dap-virtual-text").setup()
+
+        -- Use overseer for running preLaunchTask and postDebugTask.
+        require("overseer").patch_dap(true)
+        require("dap.ext.vscode").json_decode = require("overseer.json").decode
+
+        -- open Dap UI automatically when debug starts (e.g. after <F5>)
+        dap.listeners.before.attach["dap-view-config"] = function()
+            dv.open()
+        end
+        dap.listeners.before.launch["dap-view-config"] = function()
+            dv.open()
+        end
+        dap.listeners.before.event_terminated["dap-view-config"] = function()
+            dv.close()
+        end
+        dap.listeners.before.event_exited["dap-view-config"] = function()
+            dv.close()
+        end
+
+        -- mappings
+        vim.keymap.set("n", "<leader>dt", "<cmd>DapViewToggle<cr>", { desc = "Toggle dap-view" })
+        vim.keymap.set("n", "<F5>", "<cmd>DapContinue<cr>", { desc = "DAP: Continue" })
+        vim.keymap.set("n", "<leader>db", "<cmd>DapToggleBreakpoint<cr>", { desc = "DAP: Toggle breakpoint" })
+        vim.keymap.set("n", "<leader>dl", function()
+            osv.launch({ port = 8086 })
+        end, { desc = "Launch Lua adapter" })
 
         -- adapters
         dap.adapters.codelldb = {
@@ -76,54 +90,5 @@ return {
                 name = "Attach to running Neovim instance",
             },
         }
-
-        dap.configurations.zig = {
-            {
-                name = "[codellb] launch",
-                type = "codelldb",
-                request = "launch",
-                program = function()
-                    return vim.fn.input("Path to executable: ", vim.fn.getcwd() .. "/", "file")
-                end,
-                cwd = "${workspaceFolder}",
-                args = {},
-                -- terminal = "external",
-                -- console = "externalTerminal",
-            },
-
-            {
-                name = "[codellb] attach",
-                type = "codelldb",
-                request = "attach",
-                pid = function()
-                    return tonumber(vim.fn.input("PID: "))
-                end,
-                cwd = "${workspaceFolder}",
-                args = {},
-            },
-        }
-
-        -- mappings
-        vim.keymap.set("n", "<F5>", function()
-            dap.continue()
-        end, {})
-
-        vim.keymap.set("n", "<leader>db", function()
-            dap.toggle_breakpoint()
-        end)
-
-        -- open Dap UI automatically when debug starts (e.g. after <F5>)
-        dap.listeners.before.attach.dapui_config = function()
-            dv.open()
-        end
-
-        dap.listeners.before.launch.dapui_config = function()
-            dv.open()
-        end
-
-        -- close Dap UI with :DapCloseUI
-        vim.api.nvim_create_user_command("DapCloseUI", function()
-            require("dv").close()
-        end, {})
     end,
 }
