@@ -1,3 +1,5 @@
+vim.keymap.set("n", "<leader>enc", ":Encoding<CR>", { desc = "List encodings" })
+
 vim.api.nvim_create_user_command("ToggleFormat", function()
     vim.g.autoformat = not vim.g.autoformat
     vim.notify(string.format("%s formatting...", vim.g.autoformat and "Enabling" or "Disabling"), vim.log.levels.INFO)
@@ -40,4 +42,28 @@ vim.api.nvim_create_user_command("Encoding", function()
     end)
 end, { desc = "Select encoding" })
 
-vim.keymap.set("n", "<leader>enc", ":Encoding<CR>", { desc = "List encodings" })
+vim.api.nvim_create_user_command("Grep", function(params)
+    local overseer = require("overseer")
+    -- Insert args at the '$*' in the grepprg
+    local cmd, num_subs = vim.o.grepprg:gsub("%$%*", params.args)
+    if num_subs == 0 then
+        cmd = cmd .. " " .. params.args
+    end
+    local task = overseer.new_task({
+        cmd = vim.fn.expandcmd(cmd),
+        components = {
+            {
+                "on_output_quickfix",
+                errorformat = vim.o.grepformat,
+                open = not params.bang,
+                open_height = 8,
+
+                items_only = true,
+            },
+            -- We don't care to keep this around as long as most tasks
+            { "on_complete_dispose", timeout = 30 },
+            "default",
+        },
+    })
+    task:start()
+end, { nargs = "*", bang = true, complete = "file" })
