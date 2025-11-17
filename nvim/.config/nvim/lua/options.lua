@@ -23,7 +23,6 @@ vim.o.laststatus = 3
 
 -- show always signcolumn (default = auto)
 vim.wo.signcolumn = "yes"
--- vim.opt.hlsearch = false
 
 -- Save undo history.
 vim.o.undofile = true
@@ -53,7 +52,7 @@ vim.opt.list = true
 vim.opt.listchars = { tab = "» ", trail = "·", nbsp = "␣" }
 
 -- Floating windows (blink, etc)
-vim.o.winborder = "rounded"
+vim.o.winborder = "single"
 vim.opt.guicursor = ""
 
 -- highlight on yank

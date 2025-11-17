@@ -2,17 +2,11 @@ return {
     "stevearc/overseer.nvim",
     opts = {
         dap = false,
+        output = {
+            use_terminal = false,
+        },
         task_list = {
-            -- direction = "bottom",
-            max_width = { 600, 0.7 },
-            bindings = {
-                ["g?"] = false,
-                ["<C-l>"] = false,
-                ["<C-h>"] = false,
-                ["<C-q"] = false,
-                ["{"] = false,
-                ["}"] = false,
-            },
+            direction = "left",
         },
         component_aliases = {
             -- Tasks from tasks.json use these components
