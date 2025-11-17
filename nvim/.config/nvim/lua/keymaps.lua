@@ -22,8 +22,7 @@ vim.keymap.set("n", "<C-Left>", ":vertical resize -2<CR>", opts)
 vim.keymap.set("n", "<C-Right>", ":vertical resize +2<CR>", opts)
 
 -- Open netrw
--- vim.keymap.set("n", "<leader>nt", ":Dired<CR>", opts)
-vim.keymap.set("n", "-", ":Dired<CR>", opts)
+vim.keymap.set("n", "-", ":Ex<CR>", opts)
 
 -- Some expected behaviours
 vim.keymap.set("n", "Y", "yg$", opts) -- Y yanks current to end
@@ -35,8 +34,9 @@ vim.keymap.set("n", "<C-u>", "<C-u>zz", opts)
 
 -- Poweful <esc>.
 vim.keymap.set({ "i", "s", "n" }, "<esc>", function()
-    if require("luasnip").expand_or_jumpable() then
-        require("luasnip").unlink_current()
+    local ok, luasnip = pcall(require, "luasnip")
+    if ok and luasnip.expand_or_jumpable() then
+        luasnip.unlink_current()
     end
     vim.cmd("noh")
     return "<esc>"
@@ -49,9 +49,7 @@ vim.keymap.set("v", ">", ">gv")
 vim.keymap.set("v", "J", ":m '>+1<CR>gv=gv")
 vim.keymap.set("v", "K", ":m '<-2<CR>gv=gv")
 
--- Quickfix / Location lists
--- in quicker.lua
-
+-- Quickfix / Location lists ("quicker.lua")
 vim.keymap.set("n", "<M-k>", "<cmd>cprev<CR>zz", { desc = "Go to the prev element in the quickfix." })
 vim.keymap.set("n", "<M-j>", "<cmd>cnext<CR>zz", { desc = "Go to the next element in the quickfix." })
 
