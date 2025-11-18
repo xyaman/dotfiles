@@ -43,7 +43,7 @@ return {
         require("nvim-dap-virtual-text").setup()
 
         -- Use overseer for running preLaunchTask and postDebugTask.
-        require("overseer").patch_dap(true)
+        require("overseer").enable_dap()
         require("dap.ext.vscode").json_decode = require("overseer.json").decode
 
         -- open Dap UI automatically when debug starts (e.g. after <F5>)

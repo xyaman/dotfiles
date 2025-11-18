@@ -53,6 +53,7 @@ vim.opt.listchars = { tab = "» ", trail = "·", nbsp = "␣" }
 
 -- Floating windows (blink, etc)
 vim.o.winborder = "single"
+vim.o.pumborder = "single"
 vim.opt.guicursor = ""
 
 -- highlight on yank
