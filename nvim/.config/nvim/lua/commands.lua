@@ -5,6 +5,7 @@ vim.api.nvim_create_user_command("ToggleFormat", function()
     vim.notify(string.format("%s formatting...", vim.g.autoformat and "Enabling" or "Disabling"), vim.log.levels.INFO)
 end, { desc = "Toggle autoformat (conform.nvim)" })
 
+-- Requires chardet to be installed
 vim.api.nvim_create_user_command("Encoding", function()
     if vim.fn.executable("chardet") == 0 then
         vim.notify("chardet is not installed", vim.log.levels.ERROR)

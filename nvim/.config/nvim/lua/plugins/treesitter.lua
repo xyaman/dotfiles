@@ -7,12 +7,8 @@ return {
         {
             "nvim-treesitter/nvim-treesitter-context",
             opts = {
-                enabled = true,
-                -- Avoid the sticky context from growing a lot.
-                max_lines = 3,
-                -- Match the context lines to the source code.
-                multiline_threshold = 1,
-                -- Disable it when the window is too small.
+                enabled = true, -- Avoid the sticky context from growing a lot.
+                max_lines = 3, -- Match the context lines to the source code.
                 min_window_height = 20,
             },
             keys = {
@@ -43,15 +39,12 @@ return {
         ignore_install = { "" },
         auto_install = true,
         indent = { enable = true },
-
         highlight = {
-            enable = true,
-
             disable = function(_, bufnr)
                 -- neovim get size of buffer
                 local file_size = vim.fn.getfsize(vim.fn.bufname(bufnr))
                 local file_lines = vim.api.nvim_buf_line_count(bufnr)
-                return file_size > 50000 or file_lines > 50000
+                return file_size > 5000 or file_lines > 5000
             end,
         },
     },

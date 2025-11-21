@@ -1,14 +1,39 @@
 local opts = { noremap = true }
 
-vim.g.mapleader = " "
-vim.g.maplocalleader = " "
-
+-- Normal: Config & Lazy
+vim.keymap.set("n", "<leader>L", "<cmd>Lazy<cr>", { desc = "Lazy" })
 vim.keymap.set("n", "<leader>vim", function()
     vim.cmd("e ~/dotfiles/nvim/.config/nvim/")
     vim.fn.chdir("~/dotfiles/nvim/.config/nvim/")
 end, { desc = "Opens vim config directory." })
 
-vim.keymap.set("n", "<leader>L", "<cmd>Lazy<cr>", { desc = "Lazy" })
+-- Normal: Some expected behaviours
+vim.keymap.set("n", "Y", "yg$", opts) -- Y yanks current to end
+vim.keymap.set("n", "n", "nzzzv", opts) -- n centers the cursor
+vim.keymap.set("n", "N", "Nzzzv", opts) -- N centers the cursor
+vim.keymap.set("n", "J", "mzJ`z", opts)
+vim.keymap.set("n", "<C-d>", "<C-d>zz", opts)
+vim.keymap.set("n", "<C-u>", "<C-u>zz", opts)
+
+-- Visual: Stay in indent mode
+vim.keymap.set("v", "<", "<gv")
+vim.keymap.set("v", ">", ">gv")
+vim.keymap.set("v", "J", ":m '>+1<CR>gv=gv")
+vim.keymap.set("v", "K", ":m '<-2<CR>gv=gv")
+
+-- Insert/Normal: Poweful <esc>.
+vim.keymap.set({ "i", "n" }, "<esc>", function()
+    local ok, luasnip = pcall(require, "luasnip")
+    if ok and luasnip.expand_or_jumpable() then
+        luasnip.unlink_current()
+    end
+    vim.cmd("noh")
+    return "<esc>"
+end, { desc = "Escape, clear hlsearch, and stop snippet session", expr = true })
+
+-- Normal: Paste linewise before/after current line
+vim.keymap.set("n", "[p", '<Cmd>exe "put! " . v:register<CR>', { desc = "Paste Above" })
+vim.keymap.set("n", "]p", '<Cmd>exe "put "  . v:register<CR>', { desc = "Paste Below" })
 
 -- Copy/Pasting related keymaps
 vim.keymap.set("x", "<leader>p", [["_dP]]) -- paste the word in x mode, but doesn't override the yank content
@@ -24,30 +49,7 @@ vim.keymap.set("n", "<C-Right>", ":vertical resize +2<CR>", opts)
 -- Open netrw
 vim.keymap.set("n", "-", ":Ex<CR>", opts)
 
--- Some expected behaviours
-vim.keymap.set("n", "Y", "yg$", opts) -- Y yanks current to end
-vim.keymap.set("n", "n", "nzzzv", opts) -- n centers the cursor
-vim.keymap.set("n", "N", "Nzzzv", opts) -- N centers the cursor
-vim.keymap.set("n", "J", "mzJ`z", opts)
-vim.keymap.set("n", "<C-d>", "<C-d>zz", opts)
-vim.keymap.set("n", "<C-u>", "<C-u>zz", opts)
-
--- Poweful <esc>.
-vim.keymap.set({ "i", "s", "n" }, "<esc>", function()
-    local ok, luasnip = pcall(require, "luasnip")
-    if ok and luasnip.expand_or_jumpable() then
-        luasnip.unlink_current()
-    end
-    vim.cmd("noh")
-    return "<esc>"
-end, { desc = "Escape, clear hlsearch, and stop snippet session", expr = true })
-
 -- Visual --
--- Stay in indent mode
-vim.keymap.set("v", "<", "<gv")
-vim.keymap.set("v", ">", ">gv")
-vim.keymap.set("v", "J", ":m '>+1<CR>gv=gv")
-vim.keymap.set("v", "K", ":m '<-2<CR>gv=gv")
 
 -- Quickfix / Location lists ("quicker.lua")
 vim.keymap.set("n", "<M-k>", "<cmd>cprev<CR>zz", { desc = "Go to the prev element in the quickfix." })

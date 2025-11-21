@@ -6,12 +6,6 @@ return {
     ---@type quicker.SetupOptions
     opts = {},
     keys = {
-        {
-            "<C-q>",
-            function()
-                require("quicker").toggle()
-            end,
-            desc = "Toggle quickfix",
-        },
+        { "<C-q>", ":lua require('quicker').toggle()<cr>", desc = "Toggle quickfix" },
     },
 }

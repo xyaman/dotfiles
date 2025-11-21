@@ -9,6 +9,7 @@ return {
             direction = "left",
         },
         component_aliases = {
+
             -- Tasks from tasks.json use these components
             default_vscode = {
                 "default",
@@ -17,11 +18,8 @@ return {
         },
     },
     keys = {
-        {
-            "<leader>ot",
-            "<cmd>OverseerToggle<cr>",
-            desc = "Toggle task window",
-        },
+        { "<leader>ot", "<cmd>OverseerToggle<cr>", desc = "Toggle task window" },
+        { "<leader>or", "<cmd>OverseerRun<cr>", desc = "Run task" },
         {
             "<leader>o<",
             function()
@@ -52,11 +50,6 @@ return {
                 end
             end,
             desc = "Restart last Overseer task",
-        },
-        {
-            "<leader>or",
-            "<cmd>OverseerRun<cr>",
-            desc = "Run task",
         },
     },
 }
