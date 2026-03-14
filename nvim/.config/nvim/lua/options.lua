@@ -4,15 +4,6 @@ vim.g.mapleader = " "
 vim.o.undofile = true -- Enable persistent undo
 vim.o.shada = "'100,<50,s10,:1000,/100,@100,h" -- Limit ShaDa file (for startup)
 
--- Enable all filetype plugins and syntax (if not enabled, for better startup)
-vim.cmd("filetype plugin indent on")
-if vim.fn.exists("syntax_on") ~= 1 then
-    vim.cmd("syntax enable")
-end
-
--- COLORSCHEME --
-vim.cmd("colorscheme retrobox")
-
 -- UI =========================================================================
 vim.o.breakindent = true -- Indent wrapped lines to match line start
 vim.o.breakindentopt = "list:-1" -- Add padding for lists (if 'wrap' is set)
@@ -37,7 +28,8 @@ vim.opt.fillchars = { eob = " ", fold = "╌" }
 
 -- Folds (see `:h fold-commands`, `:h zM`, `:h zR`, `:h zA`, `:h zj`)
 vim.o.foldlevel = 10 -- Fold nothing by default; set to 0 or 1 to fold
-vim.o.foldmethod = "indent" -- Fold based on indent level
+vim.o.foldmethod = "expr" -- Fold based on treesitter
+vim.o.foldexpr = "v:lua.vim.treesitter.foldexpr()"
 vim.o.foldnestmax = 10 -- Limit number of fold levels
 vim.o.foldtext = "" -- Show text under fold with its highlighting
 
