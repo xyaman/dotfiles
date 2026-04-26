@@ -15,8 +15,8 @@
   "nvim-dap-view": { "branch": "main", "commit": "4b0adae3dd2b1eb17b5ab69d69327bbb93d33939" },
   "nvim-dap-virtual-text": { "branch": "master", "commit": "fbdb48c2ed45f4a8293d0d483f7730d24467ccb6" },
   "nvim-lspconfig": { "branch": "master", "commit": "883c6495b53fccbd35d0938aac8bdf72f6d499c0" },
-  "nvim-treesitter": { "branch": "main", "commit": "42fc28ba918343ebfd5565147a42a26580579482" },
-  "nvim-treesitter-context": { "branch": "master", "commit": "660861b1849256398f70450afdf93908d28dc945" },
+  "nvim-treesitter": { "branch": "main", "commit": "4916d6592ede8c07973490d9322f187e07dfefac" },
+  "nvim-treesitter-context": { "branch": "master", "commit": "b0c45cefe2c8f7b55fc46f34e563bc428ef99636" },
   "one-small-step-for-vimkind": { "branch": "main", "commit": "87eeca2bd4d90a94eed1ef0dbc66885117e7bacb" },
   "overseer.nvim": { "branch": "master", "commit": "2fe35c4282c35179fb615acbf52881f22924e7ad" },
   "quicker.nvim": { "branch": "master", "commit": "12a2291869a326424b1cbee937f4f80334433012" }

@@ -1,21 +1,20 @@
 return {
     "nvim-treesitter/nvim-treesitter",
-    event = { "BufReadPost", "BufNewFile" },
-    -- cmd = { "TSInstall", "TSBufEnable", "TSBufDisable", "TSModuleInfo" },
-
+    lazy = false, -- Plugin does NOT support lazy-loading
+    branch = "main",
+    build = ":TSUpdate",
     dependencies = {
         {
             "nvim-treesitter/nvim-treesitter-context",
             opts = {
-                enabled = true, -- Avoid the sticky context from growing a lot.
-                max_lines = 3, -- Match the context lines to the source code.
+                enabled = true,
+                max_lines = 3,
                 min_window_height = 20,
             },
             keys = {
                 {
                     "[c",
                     function()
-                        -- Jump to previous change when in diffview.
                         if vim.wo.diff then
                             return "[c"
                         else
@@ -32,24 +31,69 @@ return {
         },
     },
 
-    build = ":TSUpdate",
-    opts = {
-        ensure_installed = {},
-        sync_install = false,
-        ignore_install = { "" },
-        auto_install = true,
-        indent = { enable = true },
-        highlight = {
-            disable = function(_, bufnr)
-                -- neovim get size of buffer
-                local file_size = vim.fn.getfsize(vim.fn.bufname(bufnr))
-                local file_lines = vim.api.nvim_buf_line_count(bufnr)
-                return file_size > 5000 or file_lines > 5000
-            end,
-        },
-    },
+    config = function()
+        -- Setup nvim-treesitter (minimal - only sets install directory)
+        require("nvim-treesitter").setup({
+            install_dir = vim.fn.stdpath("data") .. "/site",
+        })
 
-    config = function(_, opts)
-        require("nvim-treesitter.configs").setup(opts)
+        -- Auto-enable treesitter highlighting with large file protection
+        vim.api.nvim_create_autocmd("FileType", {
+            group = vim.api.nvim_create_augroup("treesitter_highlight", { clear = true }),
+            callback = function(args)
+                local bufnr = args.buf
+                local bufname = vim.fn.bufname(bufnr)
+                local filetype = vim.bo[bufnr].filetype
+
+                -- Skip special filetypes without treesitter parsers
+                local skip_filetypes = {
+                    fzf = true,
+                    git = true,
+                    gitcommit = true,
+                    help = true,
+                    man = true,
+                    qf = true,
+                    terminal = true,
+                    prompt = true,
+                    dashboard = true,
+                    alpha = true,
+                    neo_tree = true,
+                    oil = true,
+                    lazy = true,
+                    mason = true,
+                    lspinfo = true,
+                    notify = true,
+                    nofile = true,
+                }
+
+                if skip_filetypes[filetype] or vim.bo[bufnr].buftype ~= "" then
+                    return
+                end
+
+                -- Get treesitter language name for this filetype
+                local lang = vim.treesitter.language.get_lang(filetype)
+                if not lang then
+                    return
+                end
+
+                -- Check if parser is actually installed
+                local parser_path = vim.fn.stdpath("data") .. "/site/parser/" .. lang .. ".so"
+                if vim.fn.filereadable(parser_path) == 0 then
+                    -- Parser not installed, skip silently
+                    return
+                end
+
+                -- Check file size limits
+                local file_size = vim.fn.getfsize(bufname)
+                local file_lines = vim.api.nvim_buf_line_count(bufnr)
+
+                -- Only start treesitter if file is not too large.
+                -- Use a 5 MB cap to avoid disabling Treesitter for normal files.
+                if file_size <= 5 * 1024 * 1024 and file_lines <= 5000 then
+                    pcall(vim.treesitter.start, bufnr, lang)
+                end
+            end,
+            desc = "Auto-enable treesitter highlighting",
+        })
     end,
 }
