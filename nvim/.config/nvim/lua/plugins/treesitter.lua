@@ -76,10 +76,9 @@ return {
                     return
                 end
 
-                -- Check if parser is actually installed
-                local parser_path = vim.fn.stdpath("data") .. "/site/parser/" .. lang .. ".so"
-                if vim.fn.filereadable(parser_path) == 0 then
-                    -- Parser not installed, skip silently
+                -- Check if parser is actually installed (searches full runtimepath)
+                local has_parser = #vim.api.nvim_get_runtime_file("parser/" .. lang .. ".so", false) > 0
+                if not has_parser then
                     return
                 end
 
@@ -89,7 +88,7 @@ return {
 
                 -- Only start treesitter if file is not too large.
                 -- Use a 5 MB cap to avoid disabling Treesitter for normal files.
-                if file_size <= 5 * 1024 * 1024 and file_lines <= 5000 then
+                if file_size <= 5 * 1024 * 1024 and file_lines <= 10000 then
                     pcall(vim.treesitter.start, bufnr, lang)
                 end
             end,
