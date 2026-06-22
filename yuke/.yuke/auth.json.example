@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "providers": {
+    "minimax": { "type": "api_key_env", "env": "MINIMAX_API_KEY" }
+  }
+}
