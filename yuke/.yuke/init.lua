@@ -69,3 +69,8 @@ yuke.tool({
 		return out
 	end,
 })
+
+-- Load extra tool bundles that live beside this config. The daemon already adds
+-- ~/.yuke to package.path (add_search_dir), so this resolves to
+-- ~/.yuke/tools/chrome_devtools.lua.
+require("tools.chrome_devtools")
