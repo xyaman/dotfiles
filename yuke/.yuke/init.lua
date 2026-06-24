@@ -54,11 +54,10 @@ yuke.tool({
 
 yuke.tool({
 	name = "bash",
-
-	description = "Run a shell command and return its output.",
-	params = { command = "string" },
+	description = "Run a shell command and return its output. Each call runs in a fresh shell at the workspace root; the working directory does NOT persist between calls. Pass `cwd` to run in another directory (relative to the workspace root, or absolute), or use absolute paths. Avoid `cd DIR && ...` when you expect the directory change to stick.",
+	params = { command = "string", cwd = "string?" },
 	handler = function(args)
-		local r = yuke.exec(args.command, { timeout_ms = 120000 })
+		local r = yuke.exec(args.command, { cwd = args.cwd, timeout_ms = 120000 })
 		local out = r.stdout
 		if r.stderr ~= "" then
 			out = out .. "\n[stderr]\n" .. r.stderr
