@@ -2,10 +2,10 @@
   "version": 1,
   "providers": {
     "minimax": { "type": "api_key_env", "env": "MINIMAX_API_KEY" },
-    "openai": {
+    "openai-codex": {
       "type": "oauth",
-      "access_token": "<written by `yuke login openai`>",
-      "refresh_token": "<written by `yuke login openai`>",
+      "access_token": "<written by `yuke login openai-codex`>",
+      "refresh_token": "<written by `yuke login openai-codex`>",
       "expires_at_ms": 0,
       "account_id": "<chatgpt account id>"
     }
