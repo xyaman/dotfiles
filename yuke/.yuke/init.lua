@@ -37,8 +37,14 @@ yuke.tool({
 	description = "Replace an exact string in a file. old_string must be unique unless replace_all is true.",
 	params = { path = "string", old_string = "string", new_string = "string", replace_all = "boolean" },
 	handler = function(args)
-		local n = yuke.fs.edit(expand(args.path), args.old_string, args.new_string, { replace_all = args.replace_all })
-		return "replaced " .. n .. (n == 1 and " occurrence" or " occurrences")
+		local path = expand(args.path)
+		local before = yuke.fs.read(path)
+		local n = yuke.fs.edit(path, args.old_string, args.new_string, { replace_all = args.replace_all })
+		local after = yuke.fs.read(path)
+		return {
+			text = "replaced " .. n .. (n == 1 and " occurrence" or " occurrences"),
+			view = { kind = "diff", old = before, new = after, path = args.path },
+		}
 	end,
 })
 
@@ -47,8 +53,13 @@ yuke.tool({
 	description = "Create or overwrite a file with the given content.",
 	params = { path = "string", content = "string" },
 	handler = function(args)
-		yuke.fs.write(expand(args.path), args.content)
-		return "wrote " .. #args.content .. " bytes"
+		local path = expand(args.path)
+		local before = yuke.fs.exists(path) and yuke.fs.read(path) or ""
+		yuke.fs.write(path, args.content)
+		return {
+			text = "wrote " .. #args.content .. " bytes",
+			view = { kind = "diff", old = before, new = args.content, path = args.path },
+		}
 	end,
 })
 
