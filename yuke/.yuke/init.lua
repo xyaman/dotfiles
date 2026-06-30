@@ -41,9 +41,10 @@ yuke.tool({
 		local before = yuke.fs.read(path)
 		local n = yuke.fs.edit(path, args.old_string, args.new_string, { replace_all = args.replace_all })
 		local after = yuke.fs.read(path)
+		local ir = yuke.diff(before, after, { path = args.path })
 		return {
 			text = "replaced " .. n .. (n == 1 and " occurrence" or " occurrences"),
-			view = { kind = "diff", old = before, new = after, path = args.path },
+			view = { kind = "diff", ir = ir },
 		}
 	end,
 })
@@ -56,9 +57,10 @@ yuke.tool({
 		local path = expand(args.path)
 		local before = yuke.fs.exists(path) and yuke.fs.read(path) or ""
 		yuke.fs.write(path, args.content)
+		local ir = yuke.diff(before, args.content, { path = args.path })
 		return {
 			text = "wrote " .. #args.content .. " bytes",
-			view = { kind = "diff", old = before, new = args.content, path = args.path },
+			view = { kind = "diff", ir = ir },
 		}
 	end,
 })
