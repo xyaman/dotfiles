@@ -41,10 +41,10 @@ yuke.tool({
 		local before = yuke.fs.read(path)
 		local n = yuke.fs.edit(path, args.old_string, args.new_string, { replace_all = args.replace_all })
 		local after = yuke.fs.read(path)
-		local ir = yuke.diff(before, after, { path = args.path })
+		local diff = yuke.diff(before, after, { path = args.path })
 		return {
 			text = "replaced " .. n .. (n == 1 and " occurrence" or " occurrences"),
-			view = { kind = "diff", ir = ir },
+			view = { kind = "diff", diff = diff },
 		}
 	end,
 })
@@ -57,26 +57,34 @@ yuke.tool({
 		local path = expand(args.path)
 		local before = yuke.fs.exists(path) and yuke.fs.read(path) or ""
 		yuke.fs.write(path, args.content)
-		local ir = yuke.diff(before, args.content, { path = args.path })
+		local diff = yuke.diff(before, args.content, { path = args.path })
 		return {
 			text = "wrote " .. #args.content .. " bytes",
-			view = { kind = "diff", ir = ir },
+			view = { kind = "diff", diff = diff },
 		}
 	end,
 })
 
 yuke.tool({
 	name = "bash",
-	description = "Run a shell command and return its output. Each call runs in a fresh shell at the workspace root; the working directory does NOT persist between calls. Pass `cwd` to run in another directory (relative to the workspace root, or absolute), or use absolute paths. Avoid `cd DIR && ...` when you expect the directory change to stick.",
-	params = { command = "string", cwd = "string?" },
+	description = "Run a shell command and return stdout, stderr, and exit code. Each call runs in a fresh shell at the workspace root; `cwd` is optional. Avoid `cd DIR && ...` when you expect the directory change to stick.\n\n`timeout_ms` is optional (default 120000, max 600000). Pass a larger value for long-running commands.",
+	params = { command = "string", cwd = "string?", timeout_ms = "integer?" },
 	handler = function(args)
-		local r = yuke.exec(args.command, { cwd = args.cwd, timeout_ms = 120000 })
+		local timeout_ms = args.timeout_ms or 120000
+		if timeout_ms > 600000 then
+			timeout_ms = 600000
+		end
+		local r = yuke.exec(args.command, { cwd = args.cwd, timeout_ms = timeout_ms })
 		local out = r.stdout
 		if r.stderr ~= "" then
 			out = out .. "\n[stderr]\n" .. r.stderr
 		end
 		if r.timed_out then
-			out = out .. "\n[timed out]"
+			out = out
+				.. "\n\n[exit code: " .. r.code .. "]"
+				.. "\n[timed out after " .. timeout_ms .. "ms — retry with a larger timeout_ms if the command needs more time]"
+		else
+			out = out .. "\n[exit code: " .. r.code .. "]"
 		end
 		return out
 	end,
