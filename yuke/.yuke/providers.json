@@ -1,0 +1,17 @@
+{
+  "providers": [
+    {
+      "name": "mlx-serve",
+      "base_url": "http://127.0.0.1:11234/v1",
+      "protocol": "completions",
+      "models": [
+        {
+          "name": "Qwen3.6-35B-A3B-UD-MLX-3bit",
+          "context_window": 65536,
+          "reasoning_format": "qwen_thinking",
+          "reasoning_levels": ["none", "high"]
+        }
+      ]
+    }
+  ]
+}
