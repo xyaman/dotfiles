@@ -94,3 +94,87 @@ yuke.tool({
 -- ~/.yuke to package.path (add_search_dir), so this resolves to
 -- ~/.yuke/tools/chrome_devtools.lua.
 require("tools.chrome_devtools")
+
+-- Subagents: register agents with yuke.agent{...}, then spawn them via a Task tool.
+-- Read-only agents get {read, bash} and are told not to edit; `general` omits
+-- `tools` so it inherits the full set (minus Task) for write-capable delegation.
+yuke.agent({
+	name = "researcher",
+	description = "Read-only investigator: explores the codebase and reports findings.",
+	tools = { "read", "bash" },
+	system = [[
+You are a research subagent. Investigate what the caller asks using read and bash
+(read-only). Report concise findings with file:line references. Do not modify files.
+]],
+})
+
+yuke.agent({
+	name = "planner",
+	description = "Read-only architect: designs an implementation approach without editing.",
+	tools = { "read", "bash" },
+	system = [[
+You are a planning subagent. Investigate with read and bash, then propose a concrete,
+step-by-step implementation approach: the files to touch, the order, and the risks.
+Do NOT edit any files. Return the plan, not a diff.
+]],
+})
+
+yuke.agent({
+	name = "reviewer",
+	description = "Read-only code reviewer: critiques a diff or files for bugs and issues.",
+	tools = { "read", "bash" },
+	system = [[
+You are a code-review subagent. Read the diff or files the caller names (use git via
+bash for diffs) and report concrete correctness, security, and clarity issues with
+file:line references, most severe first. Do NOT modify files.
+]],
+})
+
+yuke.agent({
+	name = "general",
+	description = "General-purpose agent for multi-step tasks; can read, write, and run commands.",
+	system = [[
+You are a general-purpose subagent. Carry out the caller's task autonomously to
+completion using the available tools, then report what you did and any follow-ups.
+]],
+})
+
+-- Build the Task description + subagent_type enum from the agents registered
+-- above, at init time (like codex/opencode: names live in the description, not a
+-- static string). Re-runs on every session build, so it is always current.
+local function build_task_spec()
+	local lines, enum = {}, {}
+	for _, name in ipairs(yuke.agent._order) do
+		local a = yuke.agent._by_name[name]
+		lines[#lines + 1] = "- " .. name .. ": " .. (a.description or "")
+		enum[#enum + 1] = name
+	end
+	local description = "Delegate a subtask to a specialized subagent that runs its own agent "
+		.. "loop to completion and returns a final result. Use for well-scoped, read-heavy, or "
+		.. "parallelizable work.\n\nAvailable subagent_type values:\n"
+		.. table.concat(lines, "\n")
+	return description, enum
+end
+
+-- Runs a registered subagent to completion and returns its final answer.
+local task_description, task_enum = build_task_spec()
+yuke.tool({
+	name = "Task",
+	description = task_description,
+	params_json = yuke.json.encode({
+		type = "object",
+		properties = {
+			subagent_type = { type = "string", enum = task_enum, description = "Which registered subagent to run." },
+			description = { type = "string", description = "A short (3-5 word) description of the task." },
+			prompt = { type = "string", description = "The task for the subagent to perform." },
+		},
+		required = { "subagent_type", "prompt" },
+	}),
+	handler = function(args)
+		local a = yuke.agent._by_name[args.subagent_type]
+		if not a then
+			return "Error: unknown subagent_type '" .. tostring(args.subagent_type) .. "'"
+		end
+		return yuke.agent.run({ model = a.model, system = a.system, tools = a.tools }, args.prompt)
+	end,
+})
