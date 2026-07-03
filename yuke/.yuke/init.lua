@@ -25,7 +25,7 @@ yuke.tool({
 		local text = yuke.fs.read(expand(args.path), args.start, args["end"])
 		local out, n = {}, args.start or 1
 		for line in (text .. "\n"):gmatch("(.-)\n") do
-			out[#out + 1] = string.format("%6d  %s", n, line)
+			out[#out + 1] = string.format("%d: %s", n, line)
 			n = n + 1
 		end
 		return table.concat(out, "\n")
