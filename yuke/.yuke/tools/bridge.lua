@@ -1,18 +1,19 @@
 -- yuke claude-bridge provider.
 --
--- Registers claude-bridge/<model> as a real yuke provider. Each turn drives a
--- node helper (bridge-helper.mjs) that runs the Agent SDK with yuke's tools
--- exposed via MCP. The helper stays alive across rounds so tool results feed
--- straight back.
+-- Registers claude-bridge/<model>. Each agent run drives a node helper that runs
+-- the Agent SDK with yuke's tools exposed via MCP. The helper stays alive across
+-- rounds (tool results feed straight back). A CC session is synced from yuke's
+-- messages and resumed across agent runs to keep CC's prompt cache warm.
 
 local json = yuke.json
 
--- Path to the helper, beside this file (resolved via package.path).
 local helper_path = package.searchpath("tools.bridge", package.path):match("(.*/)") .. "bridge-helper.mjs"
 
--- Per-turn helper state. Held in a module upvalue so it survives across rounds
--- within one agent run, and is torn down on agent_end.
+-- Helper process, alive for one agent run.
 local helper = nil
+
+-- CC session id preserved across agent runs for resume. Cleared on compaction.
+local saved_session = nil
 
 local function helper_send(obj)
   helper.proc:write(json.encode(obj))
@@ -24,55 +25,69 @@ local function helper_recv(timeout)
   return json.decode(line)
 end
 
--- Drain helper output, forwarding to `out`. Returns when the helper emits a
--- terminal event (done/error). A tool_use ends the round (engine runs the tool).
+local function map_tools(tools)
+  local out = {}
+  for _, t in ipairs(tools) do
+    table.insert(out, { name = t.name, description = t.description, parameters = t.parameters })
+  end
+  return out
+end
+
+local function spawn_helper(req)
+  helper = { proc = yuke.proc.spawn({ "node", helper_path }, { env = {} }) }
+  local hello = helper_recv(10000)
+  if hello.type ~= "hello" then error("claude-bridge: expected hello") end
+  helper_send({
+    type = "init",
+    system = req.system,
+    model = req.model,
+    effort = req.reasoning,
+    tools = map_tools(req.tools),
+    messages = req.messages,
+    session_id = saved_session,
+  })
+  local ready = helper_recv(15000)
+  if ready.type ~= "ready" then error("claude-bridge: expected ready, got " .. (ready.type or "?")) end
+  saved_session = ready.session_id
+end
+
+-- Drain helper output into `out`. tool_use ends the round (engine runs the tool).
 local function drain(out)
   while true do
     local msg = helper_recv()
     local t = msg.type
-    if t == "text" then
-      out:text(msg.delta)
-    elseif t == "reasoning" then
-      out:reasoning(msg.delta)
+    if t == "text" then out:text(msg.delta)
+    elseif t == "reasoning" then out:reasoning(msg.delta)
     elseif t == "tool_use" then
       out:tool_call({ id = msg.id, name = msg.name, arguments = msg.arguments })
       out:done({ stop_reason = "tool_calls" })
       return
     elseif t == "done" then
       if msg.usage then out:usage(msg.usage) end
+      if msg.session_id then saved_session = msg.session_id end
       out:done({ stop_reason = msg.stop_reason or "stop" })
       return
     elseif t == "error" then
       out:error(msg.message or "unknown error")
       return
     end
-    -- hello/ready/etc: ignore
   end
 end
 
--- Map yuke tool schemas to the shape the helper expects.
 local function map_tools(tools)
   local out = {}
   for _, t in ipairs(tools) do
-    table.insert(out, {
-      name = t.name,
-      description = t.description,
-      parameters = t.parameters,
-    })
+    table.insert(out, { name = t.name, description = t.description, parameters = t.parameters })
   end
   return out
 end
 
--- Build the assistant prompt the SDK expects. yuke gives us the full message
--- list; we only need the latest user turn (the SDK owns its own session).
--- For round-1 we pass the user message; subsequent rounds pass the tool result
--- via the helper's stdin tool_result handler.
+-- Extract the last user message's text (the prompt driving this agent run).
 local function last_user_text(messages)
   for i = #messages, 1, -1 do
     local m = messages[i]
-    if m.role == "user" and m.content then
+    if m.role == "user" then
       if type(m.content) == "string" then return m.content end
-      -- multimodal: concatenate text parts
       local parts = {}
       for _, p in ipairs(m.content) do
         if p.type == "text" then table.insert(parts, p.text) end
@@ -80,7 +95,17 @@ local function last_user_text(messages)
       return table.concat(parts, "\n")
     end
   end
-  return messages[#messages].content or ""
+  return ""
+end
+
+-- Flatten a tool-result message's content to text.
+local function tool_text(content)
+  if type(content) == "string" then return content end
+  local parts = {}
+  for _, p in ipairs(content) do
+    if p.type == "text" then table.insert(parts, p.text) end
+  end
+  return table.concat(parts, "\n")
 end
 
 local models = {
@@ -93,51 +118,48 @@ yuke.provider {
   name = "claude-bridge",
   models = models,
   stream = function(req, out)
-    -- Lazy-spawn the helper on first round of a turn.
+    -- Round 1 of an agent run: spawn helper, sync session, drive the user turn.
     if helper == nil then
-      helper = { proc = yuke.proc.spawn({ "node", helper_path }, { env = {} }) }
-      -- Wait for hello.
-      local hello = helper_recv(10000)
-      if hello.type ~= "hello" then error("claude-bridge: expected hello from helper") end
-      -- Init with tools, system, model.
-      helper_send({
-        type = "init",
-        system = req.system,
-        model = req.model,
-        effort = req.reasoning,
-        tools = map_tools(req.tools),
-        cwd = nil,
-      })
-      local ready = helper_recv(10000)
-      if ready.type ~= "ready" then error("claude-bridge: expected ready from helper") end
+      spawn_helper(req)
+      helper_send({ type = "turn", prompt = last_user_text(req.messages) })
+      drain(out)
+      return
     end
-
-    -- If there is a pending tool result (we were re-entered after a tool round),
-    -- feed it to the helper before starting the next turn.
-    -- The engine appends the tool result to req.messages; find it.
-    local last = req.messages[#req.messages]
-    if last and last.role == "tool" then
-      -- tool result message: deliver to helper by id
-      local content = last.content
-      if type(content) ~= "string" then
-        -- multimodal tool result: flatten
-        local parts = {}
-        for _, p in ipairs(content) do
-          if p.type == "text" then table.insert(parts, p.text) end
-        end
-        content = table.concat(parts, "\n")
+    -- Continuation round: feed the pending tool result(s), then drain. The engine
+    -- appends tool-result messages after our tool_use; match by tool_call_id.
+    for _, m in ipairs(req.messages) do
+      if m.role == "tool" and m.tool_call_id then
+        helper_send({ type = "tool_result", id = m.tool_call_id, content = tool_text(m.content) })
       end
-      -- The tool_call_id is on the message; the helper keys by the id we sent.
-      helper_send({ type = "tool_result", id = last.tool_call_id, content = content })
     end
-
-    -- Drive the turn.
-    helper_send({ type = "turn", prompt = last_user_text(req.messages) })
     drain(out)
   end,
 }
 
--- Tear down the helper at run end so it never leaks.
+-- Route compaction through the same backend. Returns { summary = ... }.
+yuke.on("before_compact", function(messages)
+  if helper == nil then return nil end
+  local prompt = "Summarize this conversation, preserving key context and decisions:\n\n"
+  for _, m in ipairs(messages) do
+    local role = m.role
+    local text = type(m.content) == "string" and m.content or tool_text(m.content)
+    if text and text ~= "" then prompt = prompt .. role .. ": " .. text .. "\n" end
+  end
+  helper_send({ type = "summarize", prompt = prompt })
+  while true do
+    local msg = helper_recv()
+    if msg.type == "summarize_done" then
+      -- Compaction rewrites history; the saved CC session is now stale.
+      saved_session = nil
+      return { summary = msg.text }
+    elseif msg.type == "summarize_error" then
+      yuke.log("claude-bridge compaction failed: " .. (msg.message or "?"), "warn")
+      return nil
+    end
+  end
+end)
+
+-- Tear down the helper at run end; keep saved_session for the next run's resume.
 yuke.on("agent_end", function()
   if helper then
     pcall(function() helper.proc:kill() end)
