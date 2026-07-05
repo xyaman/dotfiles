@@ -1,13 +1,12 @@
 #!/usr/bin/env node
 // yuke claude-bridge helper.
 //
-// Wraps @anthropic-ai/claude-agent-sdk query(). Maintains a CC session on disk
-// via cc-session-io, synced from yuke's messages each agent run, so resume keeps
-// CC's prompt cache warm. yuke's tools are an MCP server; each call is bridged
-// over stdio (tool_use out, tool_result in).
+// Wraps @anthropic-ai/claude-agent-sdk query(). Syncs a CC session from yuke's
+// messages via cc-session-io, resumed across runs for prompt-cache warmth.
+// yuke's tools are an MCP server; each call bridges over stdio.
 
 import { query, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
-import { createSession, deleteSession } from "cc-session-io";
+import { createSession, deleteSession, repairToolPairing, getClaudeDir } from "cc-session-io";
 import { z } from "zod";
 
 function send(obj) {
@@ -17,7 +16,6 @@ function send(obj) {
 // Pending MCP tool calls awaiting a result from yuke. Keyed by tool_use id.
 const pending = new Map();
 
-// Session state, set on init.
 const state = {
   cwd: process.cwd(),
   system: undefined,
@@ -27,7 +25,8 @@ const state = {
   extraArgs: {},
   sessionId: null,
   projectPath: null,
-  controller: null,
+  turnController: null,
+  summarizeController: null,
 };
 
 // --- stdio readline ---
@@ -51,19 +50,19 @@ async function handle(msg) {
   switch (msg.type) {
     case "init": return doInit(msg);
     case "turn": return runTurn(msg.prompt);
-    case "summarize": return runSummarize(msg.prompt);
+    case "summarize": return runSummarize(msg);
     case "tool_result": {
       const r = pending.get(msg.id);
       if (r) { pending.delete(msg.id); r(msg.content); }
       return;
     }
     case "abort":
-      if (state.controller) state.controller.abort();
+      if (state.turnController) state.turnController.abort();
+      if (state.summarizeController) state.summarizeController.abort();
       return;
   }
 }
 
-// Sync a CC session from yuke's message history, then signal ready.
 function doInit(msg) {
   state.cwd = msg.cwd || process.cwd();
   state.system = msg.system;
@@ -72,17 +71,16 @@ function doInit(msg) {
   state.tools = msg.tools || [];
   state.extraArgs = msg.extraArgs || {};
   state.projectPath = msg.projectPath || state.cwd;
+  const claudeDir = getClaudeDir(process.env.CLAUDE_CONFIG_DIR);
 
-  // Import everything EXCEPT the last message (the new user turn drives query()).
   const all = msg.messages || [];
   const history = all.slice(0, -1);
-  const converted = convertMessages(history);
+  const converted = repairToolPairing(convertMessages(history));
 
-  // Only sync+resume when there's prior history. On the first turn there's
-  // nothing to import, so let CC create its own session and capture the id.
+  // Only sync+resume when there's prior history. First turn: CC creates its own.
   if (converted.length > 0 && msg.session_id) {
-    try { deleteSession(msg.session_id, state.projectPath); } catch {}
-    const session = createSession({ projectPath: state.projectPath, sessionId: msg.session_id, cwd: state.cwd });
+    try { deleteSession(msg.session_id, state.projectPath, claudeDir); } catch {}
+    const session = createSession({ projectPath: state.projectPath, sessionId: msg.session_id, cwd: state.cwd, claudeDir });
     session.importMessages(converted);
     session.save();
     state.sessionId = session.sessionId;
@@ -93,6 +91,17 @@ function doInit(msg) {
 }
 
 // --- yuke message -> cc-session-io Message (Anthropic shape) ---
+
+// Sanitize tool ids: Anthropic requires [a-zA-Z0-9_-] only.
+const sanitizeCache = new Map();
+function sanitizeToolId(id) {
+  const cached = sanitizeCache.get(id);
+  if (cached) return cached;
+  const clean = String(id).replace(/[^a-zA-Z0-9_-]/g, "_");
+  sanitizeCache.set(id, clean);
+  return clean;
+}
+
 function convertMessages(messages) {
   const out = [];
   for (const m of messages) {
@@ -103,7 +112,12 @@ function convertMessages(messages) {
       out.push({ role: "assistant", content: toAssistantBlocks(m) });
     } else if (m.role === "tool") {
       const text = typeof m.content === "string" ? m.content : partsToText(m.content);
-      out.push({ role: "user", content: [{ type: "tool_result", tool_use_id: m.tool_call_id, content: text || "" }] });
+      out.push({ role: "user", content: [{
+        type: "tool_result",
+        tool_use_id: sanitizeToolId(m.tool_call_id),
+        content: text || "",
+        is_error: !!m.is_error,
+      }] });
     }
   }
   return out;
@@ -115,7 +129,8 @@ function toUserContent(content) {
   const blocks = [];
   for (const p of content) {
     if (p.type === "text" && p.text) blocks.push({ type: "text", text: p.text });
-    else if (p.type === "image" && p.data) blocks.push({ type: "image", source: { type: "base64", media_type: p.mime || "image/png", data: p.data } });
+    else if (p.type === "image" && p.data)
+      blocks.push({ type: "image", source: { type: "base64", media_type: p.mime || "image/png", data: p.data } });
   }
   return blocks.length ? blocks : "[empty]";
 }
@@ -124,22 +139,19 @@ function toAssistantBlocks(m) {
   const blocks = [];
   const text = typeof m.content === "string" ? m.content : partsToText(m.content);
   if (text) blocks.push({ type: "text", text });
-  if (m.reasoning_content && m.reasoning_signature) {
+  if (m.reasoning_content && m.reasoning_signature)
     blocks.push({ type: "thinking", thinking: m.reasoning_content, signature: m.reasoning_signature });
-  }
   for (const tc of m.tool_calls || []) {
     let input;
     try { input = JSON.parse(tc.arguments || "{}"); } catch { input = {}; }
-    blocks.push({ type: "tool_use", id: tc.id, name: tc.name, input });
+    blocks.push({ type: "tool_use", id: sanitizeToolId(tc.id), name: tc.name, input });
   }
   return blocks.length ? blocks : [{ type: "text", text: "[empty]" }];
 }
 
 function partsToText(content) {
   if (!Array.isArray(content)) return "";
-  const parts = [];
-  for (const p of content) if (p.type === "text" && p.text) parts.push(p.text);
-  return parts.join("\n");
+  return content.filter((p) => p.type === "text" && p.text).map((p) => p.text).join("\n");
 }
 
 // Build the MCP server exposing yuke's tools.
@@ -177,7 +189,7 @@ function jsonSchemaToZod(schema) {
 }
 
 async function runTurn(prompt) {
-  state.controller = new AbortController();
+  state.turnController = new AbortController();
   try {
     const q = query({
       prompt,
@@ -192,45 +204,48 @@ async function runTurn(prompt) {
         settingSources: [],
         skills: [],
         resume: state.sessionId,
-        abortController: state.controller,
+        abortController: state.turnController,
         ...state.extraArgs,
       },
     });
-    await pump(q);
+    await pump(q, state.turnController);
   } catch (err) {
     send({ type: "error", message: err?.message || String(err) });
   } finally {
-    state.controller = null;
+    state.turnController = null;
   }
 }
 
-// Isolated summarizer for before_compact: no tools, one turn, return text.
-async function runSummarize(prompt) {
-  state.controller = new AbortController();
+// Summarizer for before_compact: separate controller, real system prompt,
+// structured message conversion instead of flat text.
+async function runSummarize(msg) {
+  state.summarizeController = new AbortController();
   try {
+    const messages = repairToolPairing(convertMessages(msg.messages || []));
+    const prompt = buildSummaryPrompt(messages);
     const q = query({
       prompt,
       options: {
         cwd: state.cwd,
         model: state.model,
-        systemPrompt: "Summarize the conversation concisely, preserving key decisions and context.",
+        systemPrompt: state.system || "You are a helpful assistant.",
         tools: [],
         permissionMode: "bypassPermissions",
         settingSources: [],
         skills: [],
         persistSession: false,
         maxTurns: 1,
-        abortController: state.controller,
+        abortController: state.summarizeController,
       },
     });
     let text = "";
-    for await (const msg of q) {
-      if (state.controller.signal.aborted) break;
-      if (msg.type === "assistant") {
-        for (const b of msg.message?.content || []) if (b.type === "text" && b.text) text += b.text;
-      } else if (msg.type === "result") {
-        if (msg.subtype !== "success") { send({ type: "summarize_error", message: msg.result || msg.subtype }); return; }
-        send({ type: "summarize_done", text: text || msg.result || "" });
+    for await (const m of q) {
+      if (state.summarizeController.signal.aborted) break;
+      if (m.type === "assistant") {
+        for (const b of m.message?.content || []) if (b.type === "text" && b.text) text += b.text;
+      } else if (m.type === "result") {
+        if (m.subtype !== "success") { send({ type: "summarize_error", message: m.result || m.subtype }); return; }
+        send({ type: "summarize_done", text: text || m.result || "" });
         return;
       }
     }
@@ -238,14 +253,30 @@ async function runSummarize(prompt) {
   } catch (err) {
     send({ type: "summarize_error", message: err?.message || String(err) });
   } finally {
-    state.controller = null;
+    state.summarizeController = null;
   }
 }
 
-// Stream query events to stdout. tool_use ends the round.
-async function pump(q) {
+// Build a structured prompt preserving tool_use/tool_result shape.
+function buildSummaryPrompt(messages) {
+  return "Summarize the conversation concisely, preserving key decisions, file paths, and important context:\n\n" +
+    messages.map((m) => {
+      if (typeof m.content === "string") return `${m.role}: ${m.content}`;
+      const parts = m.content.map((b) => {
+        if (b.type === "text") return b.text;
+        if (b.type === "tool_use") return `[calling ${b.name}(${JSON.stringify(b.input)})]`;
+        if (b.type === "tool_result") return `[result: ${typeof b.content === "string" ? b.content : JSON.stringify(b.content)}]`;
+        if (b.type === "thinking") return "";
+        return "";
+      }).filter(Boolean);
+      return `${m.role}:\n${parts.join("\n")}`;
+    }).join("\n\n");
+}
+
+// Stream query events to stdout.
+async function pump(q, controller) {
   for await (const msg of q) {
-    if (state.controller.signal.aborted) break;
+    if (controller.signal.aborted) break;
     if (msg.type === "system" && msg.subtype === "init" && msg.session_id) {
       state.sessionId = msg.session_id;
     } else if (msg.type === "assistant") {
@@ -270,17 +301,4 @@ function mapStop(r) {
   return ({ end_turn: "stop", max_turns: "length", tool_use: "tool_calls" })[r] || "stop";
 }
 
-function randomUuid() {
-  // RFC 4122 v4: 8-4-4-4-12, version nibble 4, variant bits.
-  const h = "0123456789abcdef";
-  let s = "";
-  for (let i = 0; i < 36; i++) {
-    if (i === 8 || i === 13 || i === 18 || i === 23) s += "-";
-    else if (i === 14) s += "4";
-    else if (i === 19) s += h[(Math.random() * 4) | 8];
-    else s += h[(Math.random() * 16) | 0];
-  }
-  return s;
-}
-
-send({ type: "hello", version: 2 });
+send({ type: "hello", version: 3 });
