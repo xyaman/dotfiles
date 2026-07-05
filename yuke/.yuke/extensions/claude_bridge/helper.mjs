@@ -327,6 +327,17 @@ function buildSummaryPrompt(messages) {
     }).join("\n\n");
 }
 
+// SDK usage → yuke's Usage struct (snake_case → yuke field names).
+function mapUsage(u) {
+  if (!u) return {};
+  return {
+    input: u.input_tokens ?? 0,
+    output: u.output_tokens ?? 0,
+    cache_read: u.cache_read_input_tokens ?? 0,
+    total: u.total_tokens ?? 0,
+  };
+}
+
 // Stream query events to stdout.
 async function pump(q, controller) {
   for await (const msg of q) {
@@ -340,7 +351,7 @@ async function pump(q, controller) {
       }
     } else if (msg.type === "result") {
       if (msg.subtype === "success") {
-        send({ type: "done", stop_reason: mapStop(msg.stop_reason), usage: msg.usage || {}, session_id: state.sessionId });
+        send({ type: "done", stop_reason: mapStop(msg.stop_reason), usage: mapUsage(msg.usage), session_id: state.sessionId });
       } else {
         const detail = msg.errors?.length ? msg.errors.join("; ") : (msg.result || `claude: ${msg.subtype}`);
         send({ type: "error", message: detail });
