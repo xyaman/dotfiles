@@ -3,21 +3,56 @@
 -- Registers claude-bridge/<model>. Each agent run drives a node helper that runs
 -- the Agent SDK with yuke's tools exposed via MCP. The helper stays alive across
 -- rounds; a CC session is synced from yuke's messages and resumed across runs.
+--
+-- Modeled on pi-claude-bridge (https://github.com/elidickinson/pi-claude-bridge).
+-- Reference commit: 756c7e6 (v0.6.1); systemPromptMode from PR #21 (593a181).
 
 local json = yuke.json
 
-local helper_path = package.searchpath("tools.bridge", package.path):match("(.*/)") .. "bridge-helper.mjs"
+local helper_path = package.searchpath("extensions.claude_bridge.init", package.path):match("(.*/)") .. "helper.mjs"
 
 local helper = nil
 local saved_session = nil
+
+-- Configurable SDK plumbing. All optional; setup() merges over these defaults.
+local config = {
+  claude_path = nil,                    -- override claude binary
+  system_prompt_mode = "replace",       -- "replace" | "preset" | "none"
+  setting_sources = {},                 -- {"user","project","local"} or {} for isolation
+  skills = {},                          -- CC skill names
+  strict_mcp_config = true,             -- suppress filesystem/cloud MCP servers
+  include_partial_messages = true,      -- stream deltas
+  thinking_display = "summarized",      -- "omitted"|"summarized"|"interleaved"|nil
+}
+
+local M = {}
+
+function M.setup(opts)
+  opts = opts or {}
+  for k, _ in pairs(config) do
+    if opts[k] ~= nil then config[k] = opts[k] end
+  end
+  return M
+end
 
 local function helper_send(obj)
   helper.proc:write(json.encode(obj))
 end
 
+-- Errors on EOF. With timeout: returns nil on timeout. Without timeout: waits
+-- indefinitely (run cancellation kills the helper group).
 local function helper_recv(timeout)
-  local line = helper.proc:readline({ timeout_ms = timeout or 60000 })
-  if line == nil then error("claude-bridge: helper closed the stream") end
+  local line, closed = helper.proc:readline({ timeout_ms = timeout })
+  if closed then error("claude-bridge: helper process exited") end
+  if line == nil then error("claude-bridge: helper timed out") end
+  return json.decode(line)
+end
+
+-- Soft variant for the sibling-collect loop: returns nil on timeout, errors on EOF.
+local function helper_recv_optional(timeout)
+  local line, closed = helper.proc:readline({ timeout_ms = timeout })
+  if closed then error("claude-bridge: helper process exited") end
+  if line == nil then return nil end
   return json.decode(line)
 end
 
@@ -65,6 +100,7 @@ local function spawn_helper(req)
     tools = map_tools(req.tools),
     messages = req.messages,
     session_id = saved_session,
+    config = config,
   })
   local ready = helper_recv(15000)
   if ready.type ~= "ready" then error("claude-bridge: expected ready, got " .. (ready.type or "?")) end
@@ -73,7 +109,10 @@ end
 
 -- Drain helper output into `out`. Collects ALL tool_use events in a round before
 -- ending (handles parallel tool calls). After a tool_use, reads with a short
--- timeout to catch siblings fired concurrently by the SDK.
+-- timeout to catch siblings fired concurrently by the SDK. The main loop has no
+-- timeout: an active turn legitimately takes minutes, and run cancellation
+-- kills the helper group (dropping the read future) — there is nothing to
+-- recover to on a mid-turn timeout.
 local function drain(out)
   local tool_calls = {}
   while true do
@@ -87,13 +126,12 @@ local function drain(out)
       table.insert(tool_calls, { id = msg.id, name = msg.name, arguments = msg.arguments })
       -- Collect sibling tool_use events (parallel calls fire near-simultaneously).
       while true do
-        local line = helper.proc:readline({ timeout_ms = 200 })
-        if line == nil then break end
-        local m = json.decode(line)
+        local m = helper_recv_optional(200)
+        if m == nil then break end -- flush timeout: siblings settled
         if m.type == "tool_use" then
           table.insert(tool_calls, { id = m.id, name = m.name, arguments = m.arguments })
         else
-          -- Unexpected event mid-collect: re-process it.
+          -- Non-tool_use mid-collect: handle done's usage/session, then stop.
           if m.type == "done" then
             if m.usage then out:usage(m.usage) end
             if m.session_id then saved_session = m.session_id end
@@ -116,31 +154,23 @@ local function drain(out)
   end
 end
 
-local models = {
-  { name = "opus",   context_window = 200000, reasoning_levels = { "low", "medium", "high" } },
-  { name = "sonnet", context_window = 200000 },
-  { name = "haiku",  context_window = 200000 },
-}
-
-yuke.provider {
-  name = "claude-bridge",
-  models = models,
-  stream = function(req, out)
-    if helper == nil then
-      spawn_helper(req)
-      helper_send({ type = "turn", prompt = last_user_text(req.messages) })
-      drain(out)
-      return
-    end
-    -- Continuation: feed pending tool result(s) by tool_call_id, then drain.
+-- Metadata lives in ~/.yuke/providers.json under "claude-bridge".
+-- This file only binds the stream (the turn-driver) to that name.
+yuke.stream("claude-bridge", function(req, out)
+  if helper == nil then
+    spawn_helper(req)
+    helper_send({ type = "turn", prompt = last_user_text(req.messages) })
+    drain(out)
+    return
+  end
+  -- Continuation: feed pending tool result(s) by tool_call_id, then drain.
     for _, m in ipairs(req.messages) do
       if m.role == "tool" and m.tool_call_id then
         helper_send({ type = "tool_result", id = m.tool_call_id, content = tool_text(m.content) })
       end
     end
     drain(out)
-  end,
-}
+end)
 
 -- Route compaction through the same backend. Passes structured messages (not
 -- flattened text) so the summarizer sees tool_use/tool_result shape.
@@ -173,3 +203,5 @@ yuke.on("agent_end", function(outcome)
     saved_session = nil
   end
 end)
+
+return M

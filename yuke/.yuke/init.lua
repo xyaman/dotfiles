@@ -1,4 +1,6 @@
-yuke.opts.default_model = "zai-coding-plan/glm-5.2"
+-- The starting model is the last-used one (per workspace, then global), falling
+-- back to providers.json "default_model". small_model titles new sessions cheaply.
+yuke.opts.small_model = { "opencode/deepseek-v4-flash-free", "minimax/MiniMax-M2.7" }
 yuke.opts.prompt = [[
 You are a senior software engineer pair-programming on the user's machine.
 
@@ -11,4 +13,4 @@ Keep responses short. Lead with what changed, not what you did.
 -- read/edit/write/bash/glob and the subagents are bundled defaults now. Override
 -- by re-declaring, or drop with yuke.tool.remove / yuke.agent.remove.
 require("tools.chrome_devtools")
-require("tools.bridge")
+require("extensions.claude_bridge")

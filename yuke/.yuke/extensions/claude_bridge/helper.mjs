@@ -16,22 +16,44 @@ function send(obj) {
 // Pending MCP tool calls awaiting a result from yuke. Keyed by tool_use id.
 const pending = new Map();
 
+// yuke model name → claude CLI id with maximal context. Add entries here as
+// CC's lineup changes; unknown names pass through verbatim.
+const MODEL_IDS = {
+  "opus-4.8":  "claude-opus-4-8[1m]",
+  "sonnet-5":  "claude-sonnet-5",
+  "haiku-4.5": "claude-haiku-4-5",
+};
+
+function sdkModelId(name) {
+  return MODEL_IDS[name] ?? name;
+}
+
 const state = {
   cwd: process.cwd(),
   system: undefined,
   model: undefined,
   effort: undefined,
   tools: [],
-  extraArgs: {},
   sessionId: null,
   projectPath: null,
   turnController: null,
   summarizeController: null,
+  config: {
+    claude_path: null,
+    system_prompt_mode: "replace",
+    setting_sources: [],
+    skills: [],
+    strict_mcp_config: true,
+    include_partial_messages: true,
+    thinking_display: "summarized",
+  },
 };
 
 // --- stdio readline ---
 let buf = "";
 process.stdin.setEncoding("utf8");
+// Catch throws in handle() so the helper survives bugs and the Lua side gets a
+// real error event instead of an opaque EOF.
 process.stdin.on("data", (chunk) => {
   buf += chunk;
   let nl;
@@ -39,12 +61,14 @@ process.stdin.on("data", (chunk) => {
     const line = buf.slice(0, nl).trim();
     buf = buf.slice(nl + 1);
     if (!line) continue;
-    let msg;
-    try { msg = JSON.parse(line); } catch { continue; }
-    handle(msg);
+    try {
+      const msg = JSON.parse(line);
+      handle(msg).catch((e) => send({ type: "error", message: "handle: " + (e?.message || String(e)) }));
+    } catch { continue; }
   }
 });
 process.stdin.on("end", () => process.exit(0));
+process.stdin.on("error", (e) => send({ type: "error", message: "stdin: " + (e?.message || String(e)) }));
 
 async function handle(msg) {
   switch (msg.type) {
@@ -56,10 +80,7 @@ async function handle(msg) {
       if (r) { pending.delete(msg.id); r(msg.content); }
       return;
     }
-    case "abort":
-      if (state.turnController) state.turnController.abort();
-      if (state.summarizeController) state.summarizeController.abort();
-      return;
+    case "abort": teardown(); return;
   }
 }
 
@@ -69,18 +90,25 @@ function doInit(msg) {
   state.model = msg.model;
   state.effort = msg.effort;
   state.tools = msg.tools || [];
-  state.extraArgs = msg.extraArgs || {};
   state.projectPath = msg.projectPath || state.cwd;
+  if (msg.config) Object.assign(state.config, msg.config);
   const claudeDir = getClaudeDir(process.env.CLAUDE_CONFIG_DIR);
 
   const all = msg.messages || [];
   const history = all.slice(0, -1);
   const converted = repairToolPairing(convertMessages(history));
 
-  // Only sync+resume when there's prior history. First turn: CC creates its own.
-  if (converted.length > 0 && msg.session_id) {
-    try { deleteSession(msg.session_id, state.projectPath, claudeDir); } catch {}
-    const session = createSession({ projectPath: state.projectPath, sessionId: msg.session_id, cwd: state.cwd, claudeDir });
+  // Rebuild when there is prior history. With session_id: reuse it (warm cache).
+  // Without (e.g. VM restart, saved_session nil): fresh CC session, import full
+  // transcript. Matches pi-claude-bridge Case 2.
+  const sid = msg.session_id;
+  if (converted.length > 0) {
+    if (sid) { try { deleteSession(sid, state.projectPath, claudeDir); } catch {} }
+    const session = createSession({
+      projectPath: state.projectPath,
+      ...(sid ? { sessionId: sid } : {}),
+      cwd: state.cwd, claudeDir,
+    });
     session.importMessages(converted);
     session.save();
     state.sessionId = session.sessionId;
@@ -188,6 +216,30 @@ function jsonSchemaToZod(schema) {
   return shape;
 }
 
+// Resolve systemPrompt shape from config.system_prompt_mode.
+function resolveSystemPrompt() {
+  const mode = state.config.system_prompt_mode;
+  if (mode === "preset") {
+    return { type: "preset", preset: "claude_code", append: state.system || undefined };
+  }
+  if (mode === "none") return "";
+  return state.system || ""; // "replace"
+}
+
+// Build extraArgs from config: thinking-display + strict-mcp-config.
+function resolveExtraArgs() {
+  const args = {};
+  if (state.config.thinking_display) args["thinking-display"] = state.config.thinking_display;
+  if (state.config.strict_mcp_config) args["strict-mcp-config"] = null;
+  return args;
+}
+
+// Lua empty tables arrive as {} — coerce to arrays where the SDK expects them.
+function asArray(v) {
+  if (Array.isArray(v)) return v;
+  return [];
+}
+
 async function runTurn(prompt) {
   state.turnController = new AbortController();
   try {
@@ -195,17 +247,19 @@ async function runTurn(prompt) {
       prompt,
       options: {
         cwd: state.cwd,
-        model: state.model,
-        systemPrompt: state.system,
+        model: sdkModelId(state.model),
+        systemPrompt: resolveSystemPrompt(),
         effort: state.effort,
         tools: [],
         mcpServers: { yuke: buildMcp() },
         permissionMode: "bypassPermissions",
-        settingSources: [],
-        skills: [],
+        settingSources: asArray(state.config.setting_sources),
+        skills: asArray(state.config.skills),
         resume: state.sessionId,
         abortController: state.turnController,
-        ...state.extraArgs,
+        includePartialMessages: state.config.include_partial_messages,
+        extraArgs: resolveExtraArgs(),
+        ...(state.config.claude_path ? { pathToClaudeCodeExecutable: state.config.claude_path } : {}),
       },
     });
     await pump(q, state.turnController);
@@ -227,7 +281,7 @@ async function runSummarize(msg) {
       prompt,
       options: {
         cwd: state.cwd,
-        model: state.model,
+        model: sdkModelId(state.model),
         systemPrompt: state.system || "You are a helpful assistant.",
         tools: [],
         permissionMode: "bypassPermissions",
@@ -302,3 +356,11 @@ function mapStop(r) {
 }
 
 send({ type: "hello", version: 3 });
+
+// On clean shutdown (stdin closed), abort active queries so the SDK reaps its
+// `claude` subprocess. yuke's SIGKILL cancel path is not catchable.
+function teardown() {
+  if (state.turnController) state.turnController.abort();
+  if (state.summarizeController) state.summarizeController.abort();
+}
+process.on("exit", teardown);
