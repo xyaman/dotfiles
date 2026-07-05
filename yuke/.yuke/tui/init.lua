@@ -62,19 +62,18 @@ tui.transcript.render("tool_result", function(r)
     return tui.diff_view(v.diff)
   end
 
-  -- everything else: ✓ or ✗ based on content
-  local ok = true
-  local content = r.content or ""
-  if r.name == "bash" then
-    local code = content:match("%[exit code:%s*(%d+)%]")
-    ok = code == "0"
-  else
-    -- read/glob/etc: non-empty content with no leading error
-    ok = content ~= "" and not content:match("^%s*$")
+  local name = r.name ~= "" and r.name or "tool"
+
+  -- success: single ✓ line
+  if not r.error then
+    return c.line { { "⮑ ✓ " .. name, "ok" } }
   end
 
-  local mark = ok and "✓" or "✗"
-  local style = ok and "ok" or "err"
-  local name = r.name ~= "" and r.name or "tool"
-  return c.line { { "⮑ " .. mark .. " " .. name, style } }
+  -- error: ✗ line plus the first error line beneath
+  local first = (r.content or ""):match("[^\r\n]*") or ""
+  local head = c.line { { "⮑ ✗ " .. name, "err" } }
+  if first ~= "" then
+    return c.vbox { head, c.line { { "   " .. first, "err" } } }
+  end
+  return head
 end)
