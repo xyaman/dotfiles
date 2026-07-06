@@ -20,8 +20,8 @@ local saved_session = nil
 local last_stop = nil
 -- Model the helper was initialized with; a switch forces re-init.
 local init_model = nil
--- User messages queued mid-turn, replayed as continuation turns after the
--- current SDK query ends (modeled on pi-claude-bridge's deferredUserMessages).
+-- User turns queued mid-turn, replayed as continuation turns after the current
+-- SDK query ends (modeled on pi-claude-bridge's deferredUserMessages).
 local deferred_prompts = {}
 
 -- Configurable SDK plumbing. All optional; setup() merges over these defaults.
@@ -93,9 +93,35 @@ local function tool_text(content)
   return table.concat(parts, "\n")
 end
 
+local function message_prefix(messages, stop)
+  local out = {}
+  for i = 1, stop do out[i] = messages[i] end
+  return out
+end
+
+local function turn_payload(req, user)
+  if user == nil then
+    return { type = "turn", prompt = "", messages = {}, cursor = nil }
+  end
+  return {
+    type = "turn",
+    prompt = user.text,
+    messages = message_prefix(req.messages, user.index),
+    cursor = user.index,
+  }
+end
+
+local function defer_turns(req, users, start)
+  for i = start, #users do
+    table.insert(deferred_prompts, turn_payload(req, users[i]))
+  end
+end
+
 -- Walk backwards from the end of messages until the last assistant message,
 -- collecting trailing tool results and user messages in order. Tool results
--- are forwarded to the helper; user messages are deferred for replay.
+-- are forwarded to the helper; user messages are deferred for replay. User
+-- entries keep their yuke transcript index so the helper can sync the Claude
+-- Code session only through the prompt it is about to send.
 local function split_trailing(messages)
   local tool_results = {}
   local user_prompts = {}
@@ -107,7 +133,7 @@ local function split_trailing(messages)
     elseif m.role == "user" then
       local text = user_text(m)
       if text and text ~= "" then
-        table.insert(user_prompts, 1, text)
+        table.insert(user_prompts, 1, { text = text, index = i })
       end
     end
   end
@@ -134,7 +160,6 @@ local function spawn_helper(req)
     model = req.model,
     effort = req.reasoning,
     tools = map_tools(req.tools),
-    messages = req.messages,
     session_id = saved_session,
     config = config,
   })
@@ -200,18 +225,21 @@ yuke.stream("claude-bridge", function(req, out)
       saved_session = nil
     end
     spawn_helper(req)
-    helper_send({ type = "turn", prompt = trailing_users[1] or "" })
-    for i = 2, #trailing_users do table.insert(deferred_prompts, trailing_users[i]) end
+    helper_send(turn_payload(req, trailing_users[1]))
+    defer_turns(req, trailing_users, 2)
   elseif last_stop == "tool_calls" then
     -- Mid-turn: forward pending tool results, defer trailing user messages.
+    local cursor = #req.messages
+    if trailing_users[1] ~= nil then cursor = trailing_users[1].index - 1 end
+    helper_send({ type = "cursor", cursor = cursor })
     for _, tr in ipairs(tool_results) do
       helper_send({ type = "tool_result", id = tr.id, content = tr.content })
     end
-    for _, u in ipairs(trailing_users) do table.insert(deferred_prompts, u) end
+    defer_turns(req, trailing_users, 1)
   else
     -- Previous turn ended; start a fresh turn.
-    helper_send({ type = "turn", prompt = trailing_users[1] or "" })
-    for i = 2, #trailing_users do table.insert(deferred_prompts, trailing_users[i]) end
+    helper_send(turn_payload(req, trailing_users[1]))
+    defer_turns(req, trailing_users, 2)
   end
 
   -- Drain loop: after each non-tool_calls response, replay deferred prompts
@@ -237,7 +265,7 @@ yuke.stream("claude-bridge", function(req, out)
     -- Turn ended (stop/length/etc). Replay deferred user messages as
     -- continuation turns before closing the stream.
     if #deferred_prompts > 0 then
-      helper_send({ type = "turn", prompt = table.remove(deferred_prompts, 1) })
+      helper_send(table.remove(deferred_prompts, 1))
     else
       out:done({ stop_reason = stop })
       return
@@ -259,8 +287,8 @@ yuke.on("before_compact", function(messages)
     local msg = helper_recv()
     if msg.type == "summarize_done" then
       -- Kill the helper so the next round respawns with compacted history.
-      -- Keep saved_session: doInit reimports into the same UUID (delete +
-      -- recreate), preserving prompt-cache warmth — same as pi's preserveId.
+      -- Keep saved_session: the next turn sync rewrites the same UUID (delete +
+      -- recreate), preserving prompt-cache warmth like pi's preserveId path.
       kill_helper()
       last_stop = nil
       return { summary = msg.text }
@@ -279,8 +307,8 @@ end)
 -- Tear down at run end. On cancel/error, kill the helper and drop the saved
 -- session so the next round respawns from scratch. On a clean completion, keep
 -- the helper alive for prompt-cache warmth across turns.
-yuke.on("agent_end", function(outcome)
-  if outcome ~= "completed" then
+yuke.on("agent_end", function(e)
+  if e.outcome ~= "completed" then
     kill_helper()
     saved_session = nil
     last_stop = nil

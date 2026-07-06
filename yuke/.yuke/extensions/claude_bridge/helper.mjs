@@ -35,6 +35,7 @@ const state = {
   effort: undefined,
   tools: [],
   sessionId: null,
+  cursor: 0,
   projectPath: null,
   turnController: null,
   summarizeController: null,
@@ -73,8 +74,9 @@ process.stdin.on("error", (e) => send({ type: "error", message: "stdin: " + (e?.
 async function handle(msg) {
   switch (msg.type) {
     case "init": return doInit(msg);
-    case "turn": return runTurn(msg.prompt);
+    case "turn": return runTurn(msg);
     case "summarize": return runSummarize(msg);
+    case "cursor": setCursor(msg.cursor); return;
     case "tool_result": {
       const r = pending.get(msg.id);
       if (r) { pending.delete(msg.id); r(msg.content); }
@@ -93,30 +95,52 @@ function doInit(msg) {
   state.projectPath = msg.projectPath || state.cwd;
   if (msg.config) Object.assign(state.config, msg.config);
   mcpServer = null; // tool set may have changed; rebuild on next buildMcp().
-  const claudeDir = getClaudeDir(process.env.CLAUDE_CONFIG_DIR);
-
-  const all = msg.messages || [];
-  const history = all.slice(0, -1);
-  const converted = repairToolPairing(convertMessages(history));
-
-  // Rebuild when there is prior history. With session_id: reuse it (warm cache).
-  // Without (e.g. VM restart, saved_session nil): fresh CC session, import full
-  // transcript. Matches pi-claude-bridge Case 2.
-  const sid = msg.session_id;
-  if (converted.length > 0) {
-    if (sid) { try { deleteSession(sid, state.projectPath, claudeDir); } catch {} }
-    const session = createSession({
-      projectPath: state.projectPath,
-      ...(sid ? { sessionId: sid } : {}),
-      cwd: state.cwd, claudeDir,
-    });
-    session.importMessages(converted);
-    session.save();
-    state.sessionId = session.sessionId;
-  } else {
-    state.sessionId = null;
-  }
+  state.sessionId = msg.session_id || null;
+  state.cursor = 0;
   send({ type: "ready", session_id: state.sessionId });
+}
+
+function setCursor(cursor) {
+  const n = Number(cursor);
+  if (Number.isFinite(n) && n >= 0) state.cursor = Math.max(state.cursor, Math.floor(n));
+}
+
+function syncSessionForTurn(messages) {
+  if (!Array.isArray(messages) || messages.length === 0) return state.sessionId;
+
+  const prior = messages.slice(0, -1);
+  if (state.sessionId && prior.length >= state.cursor) {
+    const missed = prior.slice(state.cursor);
+    const assistantOnly = missed.length > 0 && missed.every((m) => m?.role === "assistant");
+    if (missed.length === 0 || assistantOnly) {
+      if (assistantOnly) state.cursor = prior.length;
+      return state.sessionId;
+    }
+  }
+
+  if (prior.length === 0) {
+    state.sessionId = null;
+    state.cursor = 0;
+    return null;
+  }
+
+  const claudeDir = getClaudeDir(process.env.CLAUDE_CONFIG_DIR);
+  const previousSessionId = state.sessionId;
+  if (previousSessionId) {
+    try { deleteSession(previousSessionId, state.projectPath, claudeDir); } catch {}
+  }
+  const session = createSession({
+    projectPath: state.projectPath,
+    ...(previousSessionId ? { sessionId: previousSessionId } : {}),
+    cwd: state.cwd,
+    claudeDir,
+  });
+  const converted = repairToolPairing(convertMessages(prior));
+  if (converted.length > 0) session.importMessages(converted);
+  session.save();
+  state.sessionId = session.sessionId;
+  state.cursor = prior.length;
+  return state.sessionId;
 }
 
 // --- yuke message -> cc-session-io Message (Anthropic shape) ---
@@ -246,13 +270,17 @@ function asArray(v) {
   return [];
 }
 
-async function runTurn(prompt) {
+async function runTurn(msg) {
+  const prompt = msg.prompt ?? "";
+  const resumeId = syncSessionForTurn(msg.messages);
+  const consumedCursor = Number.isFinite(Number(msg.cursor)) ? Math.floor(Number(msg.cursor)) : null;
   state.turnController = new AbortController();
   try {
     const q = query({
       prompt,
       options: {
         cwd: state.cwd,
+        env: { ...process.env, ENABLE_CLAUDEAI_MCP_SERVERS: "0", DISABLE_AUTO_COMPACT: "1" },
         model: sdkModelId(state.model),
         systemPrompt: resolveSystemPrompt(),
         effort: state.effort,
@@ -261,14 +289,15 @@ async function runTurn(prompt) {
         permissionMode: "bypassPermissions",
         settingSources: asArray(state.config.setting_sources),
         skills: asArray(state.config.skills),
-        resume: state.sessionId,
+        ...(resumeId ? { resume: resumeId } : {}),
         abortController: state.turnController,
         includePartialMessages: state.config.include_partial_messages,
         extraArgs: resolveExtraArgs(),
         ...(state.config.claude_path ? { pathToClaudeCodeExecutable: state.config.claude_path } : {}),
       },
     });
-    await pump(q, state.turnController);
+    const ok = await pump(q, state.turnController);
+    if (ok && consumedCursor !== null) setCursor(consumedCursor);
   } catch (err) {
     send({ type: "error", message: err?.message || String(err) });
   } finally {
@@ -287,6 +316,7 @@ async function runSummarize(msg) {
       prompt,
       options: {
         cwd: state.cwd,
+        env: { ...process.env, ENABLE_CLAUDEAI_MCP_SERVERS: "0", DISABLE_AUTO_COMPACT: "1" },
         model: sdkModelId(state.model),
         systemPrompt: state.system || "You are a helpful assistant.",
         tools: [],
@@ -336,14 +366,14 @@ function buildSummaryPrompt(messages) {
 // SDK usage → yuke's Usage struct (snake_case → yuke field names).
 function mapUsage(u) {
   if (!u) return {};
-  const input = u.input_tokens ?? 0;
+  const input = (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0);
   const output = u.output_tokens ?? 0;
   const cacheRead = u.cache_read_input_tokens ?? 0;
   return {
     input,
     output,
     cache_read: cacheRead,
-    total: u.total_tokens ?? (input + output + cacheRead),
+    total: input + output,
   };
 }
 
@@ -361,14 +391,16 @@ async function pump(q, controller) {
     } else if (msg.type === "result") {
       if (msg.subtype === "success") {
         send({ type: "done", stop_reason: mapStop(msg.stop_reason), usage: mapUsage(msg.usage), session_id: state.sessionId });
+        return true;
       } else {
         const detail = msg.errors?.length ? msg.errors.join("; ") : (msg.result || `claude: ${msg.subtype}`);
         send({ type: "error", message: detail });
+        return false;
       }
-      return;
     }
   }
   send({ type: "done", stop_reason: "stop", usage: {}, session_id: state.sessionId });
+  return true;
 }
 
 function mapStop(r) {
