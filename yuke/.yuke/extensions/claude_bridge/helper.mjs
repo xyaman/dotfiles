@@ -92,6 +92,7 @@ function doInit(msg) {
   state.tools = msg.tools || [];
   state.projectPath = msg.projectPath || state.cwd;
   if (msg.config) Object.assign(state.config, msg.config);
+  mcpServer = null; // tool set may have changed; rebuild on next buildMcp().
   const claudeDir = getClaudeDir(process.env.CLAUDE_CONFIG_DIR);
 
   const all = msg.messages || [];
@@ -182,8 +183,12 @@ function partsToText(content) {
   return content.filter((p) => p.type === "text" && p.text).map((p) => p.text).join("\n");
 }
 
-// Build the MCP server exposing yuke's tools.
+// Build the MCP server exposing yuke's tools. Cached after init — handlers are
+// stateless (mint fresh ids at call time, key off the module-level pending map).
+let mcpServer = null;
+
 function buildMcp() {
+  if (mcpServer) return mcpServer;
   const defs = state.tools.map((t) => ({
     name: t.name,
     description: t.description || "",
@@ -195,7 +200,8 @@ function buildMcp() {
       return { content: [{ type: "text", text: typeof content === "string" ? content : JSON.stringify(content) }] };
     },
   }));
-  return createSdkMcpServer({ name: "yuke", tools: defs, alwaysLoad: true });
+  mcpServer = createSdkMcpServer({ name: "yuke", tools: defs, alwaysLoad: true });
+  return mcpServer;
 }
 
 function jsonSchemaToZod(schema) {
@@ -330,11 +336,14 @@ function buildSummaryPrompt(messages) {
 // SDK usage → yuke's Usage struct (snake_case → yuke field names).
 function mapUsage(u) {
   if (!u) return {};
+  const input = u.input_tokens ?? 0;
+  const output = u.output_tokens ?? 0;
+  const cacheRead = u.cache_read_input_tokens ?? 0;
   return {
-    input: u.input_tokens ?? 0,
-    output: u.output_tokens ?? 0,
-    cache_read: u.cache_read_input_tokens ?? 0,
-    total: u.total_tokens ?? 0,
+    input,
+    output,
+    cache_read: cacheRead,
+    total: u.total_tokens ?? (input + output + cacheRead),
   };
 }
 
