@@ -373,8 +373,10 @@ yuke.tool({
 		yuke.fs.write(path, yuke.base64.decode(data))
 		-- Return the PNG inline so a vision model sees it.
 		return {
-			text = string.format("Screenshot of %s (saved to %s)", page.id, path),
-			image = { base64 = data, mime = "image/png" },
+			content = {
+				{ type = "text", text = string.format("Screenshot of %s (saved to %s)", page.id, path) },
+				{ type = "image", source = { kind = "base64", mime = "image/png", data = data } },
+			},
 		}
 	end,
 })
