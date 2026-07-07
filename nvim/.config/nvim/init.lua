@@ -21,11 +21,3 @@ require("lazy").setup("plugins", {
     change_detection = { notify = false },
     rocks = { enabled = false },
 })
---
--- -- set treesitter context highlight
--- vim.api.nvim_set_hl(0, "TreesitterContextBottom", { underline = true, sp = "#6D5978" })
--- vim.cmd.colorscheme("tsoding")
--- vim.cmd.colorscheme("vague")
---
--- -- Enable the new experimental command-line features.
--- require("vim._extui").enable({})

@@ -21,15 +21,11 @@ vim.keymap.set("v", ">", ">gv")
 vim.keymap.set("v", "J", ":m '>+1<CR>gv=gv")
 vim.keymap.set("v", "K", ":m '<-2<CR>gv=gv")
 
--- Insert/Normal: Poweful <esc>.
-vim.keymap.set({ "i", "n" }, "<esc>", function()
-    local ok, luasnip = pcall(require, "luasnip")
-    if ok and luasnip.expand_or_jumpable() then
-        luasnip.unlink_current()
-    end
+-- Normal: Clear hlsearch on <esc>.
+vim.keymap.set("n", "<esc>", function()
     vim.cmd("noh")
     return "<esc>"
-end, { desc = "Escape, clear hlsearch, and stop snippet session", expr = true })
+end, { desc = "Clear hlsearch on <esc>", expr = true })
 
 -- Normal: Paste linewise before/after current line
 vim.keymap.set("n", "[p", '<Cmd>exe "put! " . v:register<CR>', { desc = "Paste Above" })
