@@ -13,7 +13,7 @@ tui.theme.set {
 }
 
 tui.transcript.labels    = { user = "", assistant = "" }
-tui.transcript.reasoning = "hide"
+tui.transcript.show_reasoning = false
 
 tui.transcript.highlight = function(msg)
   if msg.role == "user" then return "user_card" end
