@@ -32,10 +32,7 @@ return {
     },
 
     config = function()
-        -- Setup nvim-treesitter (minimal - only sets install directory)
-        require("nvim-treesitter").setup({
-            install_dir = vim.fn.stdpath("data") .. "/site",
-        })
+        require("nvim-treesitter").setup({})
 
         -- Auto-enable treesitter highlighting with large file protection
         vim.api.nvim_create_autocmd("FileType", {
@@ -73,12 +70,6 @@ return {
                 -- Get treesitter language name for this filetype
                 local lang = vim.treesitter.language.get_lang(filetype)
                 if not lang then
-                    return
-                end
-
-                -- Check if parser is actually installed (searches full runtimepath)
-                local has_parser = #vim.api.nvim_get_runtime_file("parser/" .. lang .. ".so", false) > 0
-                if not has_parser then
                     return
                 end
 
