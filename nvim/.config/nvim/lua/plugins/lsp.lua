@@ -23,6 +23,7 @@ return {
                     vim.keymap.set("n", "<leader>cr", vim.lsp.buf.rename, { buffer = ev.buf, desc = "Rename" })
                     vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, { buffer = ev.buf, desc = "Code action" })
                     vim.keymap.set("n", "<leader>cs", vim.lsp.buf.signature_help, { buffer = ev.buf, desc = "Signature help" })
+                    vim.keymap.set("n", "df", vim.diagnostic.open_float, { buffer = ev.buf, desc = "Show diagnostic float" })
                 end,
                 desc = "LSP keymaps on attach",
             })
