@@ -13,4 +13,5 @@ Keep responses short. Lead with what changed, not what you did.
 -- read/edit/write/bash/glob and the subagents are bundled defaults now. Override
 -- by re-declaring, or drop with yuke.tool.remove / yuke.agent.remove.
 require("tools.chrome_devtools")
+require("tools.web_search")
 require("extensions.claude_bridge")
