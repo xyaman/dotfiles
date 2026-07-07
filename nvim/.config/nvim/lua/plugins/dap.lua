@@ -36,7 +36,7 @@ return {
                 default_section = "scopes",
                 controls = { enabled = true },
             },
-            windows = { height = 12 },
+            windows = { size = 12 },
             switchbuf = "usetab,uselast",
         })
 
