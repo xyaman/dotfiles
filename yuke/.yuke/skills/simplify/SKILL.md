@@ -39,7 +39,7 @@ is nothing to review and stop.
 
 ## Phase 1: Review (4 parallel sub-agents)
 
-Launch **4 independent `yuke -p` agents** in a single message so they run
+Launch **4 independent agents** in a single message so they run
 concurrently. Each agent gets the diff and one review angle. Each returns
 findings as a list, where every finding has:
 
@@ -47,11 +47,6 @@ findings as a list, where every finding has:
 - `line`: the line number (or range)
 - `summary`: one-line description of the issue
 - `cost`: what is duplicated, wasted, or harder to maintain
-
-Build each prompt as a self-contained `yuke -p` command following the
-`spawn-agent` skill pattern: start with `[sub-agent]`, inline the diff via
-`$(cat /tmp/simplify-diff.txt)`, and ask for structured findings only (no
-fixes). Use `--model zai-coding-plan/glm-5.2` as the default analyzer.
 
 The four angles:
 
@@ -87,24 +82,6 @@ Check that each change is implemented at the right depth, not as a fragile
 bandaid. Special cases layered on shared infrastructure are a sign the fix
 isn't deep enough. Prefer generalizing the underlying mechanism over adding
 special cases.
-
-### Example sub-agent invocation
-
-```sh
-yuke -p "[sub-agent] You are reviewing a code diff for SIMPLIFICATION opportunities only.
-
-Rules:
-- Do NOT look for correctness bugs.
-- Flag code more complex than necessary: nested conditionals, multi-step transforms, verbose patterns, dead branches.
-- For each finding give: file, line, summary (one line), and cost (what is harder to maintain).
-- Return findings as a list. If nothing is wrong, say 'no findings'.
-
-Diff:
-$(cat /tmp/simplify-diff.txt)" --model zai-coding-plan/glm-5.2
-```
-
-Repeat for reuse, efficiency, and altitude, changing the angle text. Launch all
-four in the same turn so they run concurrently.
 
 ## Phase 2: Apply the fixes
 
