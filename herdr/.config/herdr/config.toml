@@ -15,6 +15,9 @@ zoom = "prefix+f"
 # Tmux prefix+r source-file -> herdr reload_config (resize_mode stays default prefix+r).
 reload_config = "prefix+r"
 
+# Tmux prefix+s choose-tree -> herdr workspace_picker (open the workspaces popup).
+workspace_picker = "prefix+s"
+
 # Tmux prefix+%" split-window -h (panes stack vertically, divider horizontal).
 # herdr token "percent" maps to KeyCode::Char('%').
 split_horizontal = "prefix+percent"
