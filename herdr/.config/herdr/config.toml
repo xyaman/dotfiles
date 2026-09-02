@@ -1,0 +1,40 @@
+# herdr configuration mirrors ~/.tmux.conf bindings.
+# Shared via stow from ~/dotfiles/herdr/.config/herdr/.
+
+[theme]
+# Follow host terminal palette (closest to the omarchy ghostty/auto-theme vibe).
+name = "terminal"
+
+[keys]
+# Match tmux prefix C-a (tmux: set-option -g prefix C-a).
+prefix = "ctrl+a"
+
+# Tmux prefix+f zoom-pane -> herdr zoom.
+zoom = "prefix+f"
+
+# Tmux prefix+r source-file -> herdr reload_config (resize_mode stays default prefix+r).
+reload_config = "prefix+r"
+
+# Tmux prefix+%" split-window -h (panes stack vertically, divider horizontal).
+# herdr token "percent" maps to KeyCode::Char('%').
+split_horizontal = "prefix+percent"
+
+# Tmux prefix+" split-window -v (panes sit side-by-side, divider vertical).
+# herdr accepts "double_quote" (or "double-quote") as a named key.
+split_vertical = "prefix+double_quote"
+
+# Tmux prefix+c new-window -> herdr new_tab.
+new_tab = "prefix+c"
+
+# Tmux hjkl select-pane (copy mode mnemonic) -> herdr focus_pane_*.
+focus_pane_left = "prefix+h"
+focus_pane_down = "prefix+j"
+focus_pane_up = "prefix+k"
+focus_pane_right = "prefix+l"
+
+# Tmux prefix+S-Left / prefix+S-Right swap-window -> herdr move_tab shift.
+move_tab_previous = "prefix+shift+left"
+move_tab_next = "prefix+shift+right"
+
+# Tmux prefix+x kill-pane -> herdr close_pane.
+close_pane = "prefix+x"
