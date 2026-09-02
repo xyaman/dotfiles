@@ -1,4 +1,0 @@
-2026-09-02T03:34:04.764928Z  INFO herdr::logging: herdr starting event="app.startup" subsystem="client" outcome="started" pid=133688
-2026-09-02T03:34:04.764993Z  INFO herdr::client: connecting to server path=/home/xyaman/.config/herdr/herdr-client.sock
-2026-09-02T03:34:04.843065Z  INFO herdr::client: handshake succeeded version=20 encoding=SemanticFrame
-2026-09-02T03:34:18.267445Z  INFO herdr::logging: herdr exiting event="app.shutdown" subsystem="client" outcome="completed" pid=133688

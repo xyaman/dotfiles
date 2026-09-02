@@ -1,0 +1,4 @@
+# herdr runtime files (server writes into the config dir)
+herdr/.config/herdr/session.json
+herdr/.config/herdr/*.log
+herdr/.config/herdr/.plugins.lock
