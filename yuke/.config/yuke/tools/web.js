@@ -1,4 +1,4 @@
-import { tools, exec, env } from "yuke";
+import { plugins, exec, env } from "yuke";
 
 const API = "https://api.monid.ai";
 const DONE = new Set(["COMPLETED", "FAILED", "BLOCKED", "STOPPED", "TIMED_OUT"]);
@@ -83,7 +83,9 @@ function formatFetch(output) {
   return lines(page.title, page.final_url || page.url, text);
 }
 
-tools.define({
+// Both tools belong to one plugin, so a dispose withdraws them together.
+plugins.use({ name: "web", apply(ctx) {
+  ctx.tools.define({
   name: "web_search",
   description: "Live web search. Titles, URLs, short snippets. Use web_fetch for page text.",
   parameters: {
@@ -101,7 +103,7 @@ tools.define({
   },
 });
 
-tools.define({
+  ctx.tools.define({
   name: "web_fetch",
   description: "Fetch a URL as markdown. Long pages are truncated.",
   parameters: {
@@ -118,3 +120,4 @@ tools.define({
     return formatFetch(await run("/fetch", { body: { urls: [url], format: "markdown" } }, signal));
   },
 });
+} });
