@@ -1,5 +1,2 @@
 .env
-agents.json
-agents.json.lock
 providers.json
-providers.json.lock

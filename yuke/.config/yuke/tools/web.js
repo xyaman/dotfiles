@@ -1,4 +1,4 @@
-import { plugins, exec, env } from "yuke";
+import { plugins, fetch, env } from "yuke";
 
 const API = "https://api.monid.ai";
 const DONE = new Set(["COMPLETED", "FAILED", "BLOCKED", "STOPPED", "TIMED_OUT"]);
@@ -17,10 +17,6 @@ function lines(...parts) {
   return parts.filter(Boolean).join("\n");
 }
 
-function quote(value) {
-  return "'" + String(value).replaceAll("'", "'\\''") + "'";
-}
-
 async function sleep(ms, signal) {
   if (signal?.aborted) throw new Error("aborted");
   await new Promise((resolve) => setTimeout(resolve, ms));
@@ -28,17 +24,21 @@ async function sleep(ms, signal) {
 }
 
 async function request(url, signal, payload) {
-  if (!env.get("MONID_API_KEY")) throw new Error("MONID_API_KEY is not set");
+  const key = env.get("MONID_API_KEY");
+  if (!key) throw new Error("MONID_API_KEY is not set");
 
-  let command = `curl -sS -H "Authorization: Bearer $MONID_API_KEY"`;
-  if (payload !== undefined) {
-    command += ` -H "Content-Type: application/json" --data-binary ${quote(JSON.stringify(payload))}`;
-  }
-  command += ` ${quote(url)}`;
-
-  const result = await exec(command, { timeoutMs: 120000, signal });
-  if (result.code !== 0) throw new Error(result.stderr.trim() || "curl failed");
-  const text = result.stdout;
+  const response = await fetch(url, {
+    method: payload === undefined ? "GET" : "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      ...(payload === undefined ? {} : { "Content-Type": "application/json" }),
+    },
+    ...(payload === undefined ? {} : { body: JSON.stringify(payload) }),
+    timeoutMs: 120000,
+    signal,
+  });
+  const text = await response.text();
+  if (!response.ok) throw new Error(`Monid HTTP ${response.status}${text ? ": " + text.slice(0, 200) : ""}`);
   try {
     return JSON.parse(text);
   } catch {

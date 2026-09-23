@@ -1,5 +1,5 @@
 import { plugins } from "yuke";
-import { composerVim, transcriptVim, agents } from "yuke/chat";
+import { composerVim, transcriptVim, agents } from "yuke/plugins";
 import "./tools/web.js";
 import { herdr } from "./plugins/herdr.js";
 
