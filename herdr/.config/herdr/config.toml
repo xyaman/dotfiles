@@ -1,3 +1,4 @@
+onboarding = false
 # Mirrors ~/.tmux.conf bindings. Stowed from ~/dotfiles/herdr/.
 # Only binds what differs from herdr's defaults.
 
