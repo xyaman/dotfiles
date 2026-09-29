@@ -1,2 +1,5 @@
 .env
 providers.json
+yuke.d.ts
+yuke-modules.d.ts
+yuke.jsconfig.json

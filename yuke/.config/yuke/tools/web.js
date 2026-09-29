@@ -1,4 +1,5 @@
 import { plugins, fetch, env } from "yuke";
+/** @import { CancellationSignal } from "yuke" */
 
 const API = "https://api.monid.ai";
 const DONE = new Set(["COMPLETED", "FAILED", "BLOCKED", "STOPPED", "TIMED_OUT"]);
@@ -7,22 +8,27 @@ const TITLE = 140;
 const PAGE = 4000;
 const RESULTS = 5;
 
+/** @param {unknown} text @param {number} max */
 function clip(text, max) {
   const compact = String(text).replace(/\s+/g, " ").trim();
   if (compact.length <= max) return compact;
   return compact.slice(0, max).replace(/\s+\S*$/, "") + "…";
 }
 
+/** @param {...unknown} parts */
 function lines(...parts) {
   return parts.filter(Boolean).join("\n");
 }
 
+/** @param {number} ms @param {CancellationSignal} signal */
 async function sleep(ms, signal) {
   if (signal?.aborted) throw new Error("aborted");
   await new Promise((resolve) => setTimeout(resolve, ms));
   if (signal?.aborted) throw new Error("aborted");
 }
 
+// Monid answers untyped JSON, so the caller checks each field it reads.
+/** @param {string} url @param {CancellationSignal} signal @param {unknown} [payload] @returns {Promise<any>} */
 async function request(url, signal, payload) {
   const key = env.get("MONID_API_KEY");
   if (!key) throw new Error("MONID_API_KEY is not set");
@@ -46,6 +52,7 @@ async function request(url, signal, payload) {
   }
 }
 
+/** @param {string} endpoint @param {Record<string, unknown>} input @param {CancellationSignal} signal @returns {Promise<any>} */
 async function run(endpoint, input, signal) {
   let job = await request(`${API}/v1/run`, signal, { provider: "tinyfish", endpoint, input });
   for (let n = 0; n < 30 && job.status && !DONE.has(job.status); n++) {
@@ -58,6 +65,7 @@ async function run(endpoint, input, signal) {
   return job.output;
 }
 
+/** @param {any} output */
 function formatSearch(output) {
   const results = output?.results;
   if (!Array.isArray(results) || results.length === 0) return "No results.";
@@ -70,10 +78,11 @@ function formatSearch(output) {
   }).join("\n\n");
 }
 
+/** @param {any} output */
 function formatFetch(output) {
   const page = output?.results?.[0];
   if (!page) {
-    const errors = output?.errors ?? [];
+    const errors = /** @type {any[]} */ (output?.errors ?? []);
     if (errors.length) return errors.map((err) => err.message || err.code || String(err)).join("\n");
     return "Empty fetch.";
   }
@@ -97,7 +106,8 @@ plugins.use({ name: "web", apply(ctx) {
     additionalProperties: false,
   },
   async execute(args, signal) {
-    const query = String(args.query || "").trim();
+    // The model can send any JSON, so read the field only from an object.
+    const query = typeof args === "object" && args !== null && "query" in args ? String(args.query || "").trim() : "";
     if (!query) throw new Error("query is required");
     return formatSearch(await run("/search", { queryParams: { query } }, signal));
   },
@@ -115,7 +125,8 @@ plugins.use({ name: "web", apply(ctx) {
     additionalProperties: false,
   },
   async execute(args, signal) {
-    const url = String(args.url || "").trim();
+    // The model can send any JSON, so read the field only from an object.
+    const url = typeof args === "object" && args !== null && "url" in args ? String(args.url || "").trim() : "";
     if (!/^https?:\/\//i.test(url)) throw new Error("url must be http(s)");
     return formatFetch(await run("/fetch", { body: { urls: [url], format: "markdown" } }, signal));
   },
