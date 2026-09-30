@@ -1,5 +1,7 @@
 import { plugins } from "yuke";
 import { composerVim, transcriptVim, agents, mcp } from "yuke:plugins";
+import { inputSourceLabel, mediaLabel, wrapRows } from "yuke:chat";
+import { clip } from "yuke:ui";
 import "./tools/web.js";
 import { herdr } from "./plugins/herdr.js";
 
@@ -14,6 +16,9 @@ plugins.use(agents({
     general: { description: "A capable general agent. Give it one self-contained task.", model: "openai-codex/gpt-5.6-luna" },
   },
 }));
+
+// The cells between the pane edge and the user card text, on each side.
+const USER_PAD = 2;
 
 const MANTIS_DARK = /** @type {const} */ ({
   palette: {
@@ -83,6 +88,32 @@ plugins.use({
       const apply = () => c.tui.style.theme(c.tui.background === "light" ? MANTIS_LIGHT : MANTIS_DARK);
       apply();
       c.on("background.changed", apply);
+    });
+    // A user message is a card: one blank row above and below its text, on the TxUser background.
+    ctx.inject(["chat"], (c) => {
+      c.chat.render({
+        message(m, parts, env) {
+          // A skill or a report source keeps the default folded look.
+          if (m.type !== "user" || m.skill_name || (m.source && m.source.type !== "parent_instruction")) return undefined;
+          const pad = Math.max(0, Math.min(USER_PAD, Math.floor((env.width - 1) / 2)));
+          const width = Math.max(1, env.width - 2 * pad);
+          let image = 0;
+          let text = "";
+          for (const part of parts) {
+            if (part.type === "text") text += part.text;
+            else if (part.type === "image" || part.type === "audio" || part.type === "file") text += mediaLabel(part.source, part.type === "image" ? ++image : 0);
+          }
+          const rows = wrapRows(text, width, "TxUser", pad);
+          if (!rows.length) rows.push({ text: "", indent: pad });
+          if (m.source) rows.unshift({ text: clip(inputSourceLabel(m.source), width), group: "TxMeta", indent: pad });
+          // Part motion lands on the first text row, not on the blank pad row.
+          rows[0].stop = true;
+          rows.unshift({ text: "" });
+          rows.push({ text: "" });
+          for (const r of rows) r.bg = "TxUser";
+          return { rows, source: text };
+        },
+      });
     });
   },
 });
