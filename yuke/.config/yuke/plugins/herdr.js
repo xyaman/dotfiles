@@ -18,13 +18,13 @@ export function herdr() {
         const pane = env.get("HERDR_PANE_ID");
         if (!path || !pane) return;
         const socketPath = path;
-        const signal = ctx.signal;
-        let stopped = false;
         let id = 0;
         let attempts = 0;
         let retry = 0;
         let desired = "";
         let acknowledged = "";
+        // Reports are serialized, and cleanup waits for the active report, so one frame is sufficient.
+        const frame = new Uint8Array(frameLimit);
         /** @type {Promise<void> | undefined} */
         let active;
         /** @type {Awaited<ReturnType<typeof net.connect>> | undefined} */
@@ -35,15 +35,14 @@ export function herdr() {
           const requestId = String(++id);
           const bytes = utf8.encode(JSON.stringify({ id: requestId, method, params: { pane_id: pane, source, ...params } }) + "\n");
           if (bytes.length > frameLimit) throw new Error("Herdr request exceeds the byte limit");
-          const options = cleanup ? { timeoutMs } : { timeoutMs, signal };
+          const options = cleanup ? { timeoutMs } : { timeoutMs, signal: ctx.signal };
           let expired = false;
           // One timer bounds the whole exchange, including partial response reads.
           const deadline = setTimeout(() => { expired = true; socket?.close(); }, timeoutMs);
           try {
             socket = await net.connect({ path: socketPath, ...options });
-            if (expired || (stopped && !cleanup)) throw new Error("Herdr request canceled");
+            if (expired || (!cleanup && !ctx.alive)) throw new Error("Herdr request canceled");
             await socket.write(bytes, options);
-            const frame = new Uint8Array(frameLimit);
             let used = 0;
             let complete = false;
             while (!expired) {
@@ -76,16 +75,19 @@ export function herdr() {
         }
 
         function schedule() {
-          if (stopped || active || retry || desired === acknowledged || attempts === maxAttempts) return;
+          if (!ctx.alive || active || retry || desired === acknowledged || attempts === maxAttempts) return;
           const state = desired;
+          /** @type {unknown} */
+          let failure;
           attempts++;
           active = request("pane.report_agent", { agent: "yuke", state }, false)
-            .then(() => { acknowledged = state; }, () => { acknowledged = ""; })
+            .then(() => { acknowledged = state; }, (error) => { acknowledged = ""; failure = error; })
             .then(() => {
               active = undefined;
-              if (stopped || desired === acknowledged) return;
+              if (!ctx.alive || desired === acknowledged) return;
               if (desired !== state) schedule();
               else if (attempts < maxAttempts) retry = setTimeout(() => { retry = 0; schedule(); }, timeoutMs);
+              else ctx.print("Herdr report failed", failure);
             });
         }
 
@@ -100,15 +102,10 @@ export function herdr() {
           schedule();
         }
 
-        function cancel() {
-          stopped = true;
-          clearTimeout(retry);
-          socket?.close();
-        }
-
         // Disposal awaits this release; cleanup has its own deadline because the plugin signal is already canceled.
         ctx.own(async () => {
-          cancel();
+          clearTimeout(retry);
+          socket?.close();
           await active;
           try { await request("pane.clear_agent_authority", {}, true); } catch {}
         });
