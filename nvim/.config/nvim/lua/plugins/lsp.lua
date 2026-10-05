@@ -1,43 +1,55 @@
 return {
     "neovim/nvim-lspconfig",
+    dependencies = {
+        "mason-org/mason.nvim",
+        "mason-org/mason-lspconfig.nvim",
+        "saghen/blink.cmp",
+    },
     config = function()
-        -- Lean server list — nvim-lspconfig supplies default cmd/filetypes/root_markers.
-        -- Mason installs the binaries (see plugins/mason.lua); this just enables them.
-        -- Note: lspconfig server names (e.g. "lua_ls") differ from Mason package names
-        -- (e.g. "lua-language-server") — keep both lists in sync when adding a language.
-        vim.lsp.enable({
-            "lua_ls",
-            "ts_ls",
-            "pyright",
-            "rust_analyzer",
-            "clangd",
-            "jsonls",
-            "yamlls",
-            "bashls",
-            "html",
-            "cssls",
-            "tailwindcss",
-            "ruby_lsp",
-            "phpactor",
-            "dockerls",
-            "zls",
-        })
+        local languages = require("config.languages")
+        local servers = languages.servers
 
+        -- Configure before enabling any server; advertise Blink's snippet/completion support.
+        vim.lsp.config("*", { capabilities = require("blink.cmp").get_lsp_capabilities() })
+        for name, config in pairs(servers) do
+            vim.lsp.config(name, config)
+        end
+
+        vim.diagnostic.config({
+            severity_sort = true,
+            float = { border = "rounded", source = "if_many" },
+        })
         vim.api.nvim_create_autocmd("LspAttach", {
+            group = vim.api.nvim_create_augroup("DotfilesLsp", { clear = true }),
             callback = function(ev)
-                local b = { buffer = ev.buf }
-                vim.keymap.set("n", "gd", vim.lsp.buf.definition, vim.tbl_extend("force", b, { desc = "Go to definition" }))
-                vim.keymap.set("n", "gD", vim.lsp.buf.declaration, vim.tbl_extend("force", b, { desc = "Go to declaration" }))
-                vim.keymap.set("n", "gi", vim.lsp.buf.implementation, vim.tbl_extend("force", b, { desc = "Go to implementation" }))
-                vim.keymap.set("n", "gr", vim.lsp.buf.references, vim.tbl_extend("force", b, { desc = "Go to references" }))
-                vim.keymap.set("n", "gt", vim.lsp.buf.type_definition, vim.tbl_extend("force", b, { desc = "Go to type definition" }))
-                vim.keymap.set("n", "K", vim.lsp.buf.hover, vim.tbl_extend("force", b, { desc = "Hover" }))
-                vim.keymap.set("n", "<leader>cr", vim.lsp.buf.rename, vim.tbl_extend("force", b, { desc = "Rename" }))
-                vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, vim.tbl_extend("force", b, { desc = "Code action" }))
-                vim.keymap.set("n", "<leader>cs", vim.lsp.buf.signature_help, vim.tbl_extend("force", b, { desc = "Signature help" }))
-                vim.keymap.set("n", "<leader>ld", vim.diagnostic.open_float, vim.tbl_extend("force", b, { desc = "Show diagnostic float" }))
+                local function map(lhs, rhs, desc)
+                    vim.keymap.set("n", lhs, rhs, { buffer = ev.buf, desc = desc })
+                end
+                map("gd", vim.lsp.buf.definition, "Go to definition")
+                map("gD", vim.lsp.buf.declaration, "Go to declaration")
+                map("gi", vim.lsp.buf.implementation, "Go to implementation")
+                map("gr", vim.lsp.buf.references, "Go to references")
+                map("gt", vim.lsp.buf.type_definition, "Go to type definition")
+                map("K", vim.lsp.buf.hover, "Hover")
+                map("<leader>cr", vim.lsp.buf.rename, "Rename")
+                map("<leader>ca", vim.lsp.buf.code_action, "Code action")
+                map("<leader>cs", vim.lsp.buf.signature_help, "Signature help")
+                map("<leader>ld", vim.diagnostic.open_float, "Show diagnostic float")
             end,
             desc = "LSP keymaps on attach",
         })
+        local managed = vim.tbl_keys(servers)
+        for name, executable in pairs(languages.prefer_external) do
+            local path = vim.fn.exepath(executable)
+            if path ~= "" then
+                vim.lsp.config(name, { cmd = { path } })
+                vim.lsp.enable(name)
+                managed = vim.tbl_filter(function(server)
+                    return server ~= name
+                end, managed)
+            end
+        end
+        table.sort(managed)
+        require("mason-lspconfig").setup({ ensure_installed = managed, automatic_enable = managed })
     end,
 }

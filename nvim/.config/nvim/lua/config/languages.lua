@@ -1,0 +1,62 @@
+-- One source of truth: lspconfig names, not Mason package names.
+-- Mason-LSPConfig manages installation, with external-tool preference below.
+return {
+    servers = {
+        lua_ls = {
+            settings = {
+                Lua = {
+                    diagnostics = { globals = { "vim" } },
+                    runtime = { version = "LuaJIT" },
+                    workspace = { checkThirdParty = false, library = { vim.env.VIMRUNTIME } },
+                    telemetry = { enable = false },
+                },
+            },
+        },
+        ts_ls = {},
+        pyright = {},
+        rust_analyzer = {},
+        clangd = {},
+        jsonls = {},
+        yamlls = {},
+        bashls = {},
+        html = {},
+        cssls = {},
+        tailwindcss = {},
+        ruby_lsp = {},
+        phpactor = {},
+        dockerls = {},
+        zls = { settings = { zls = { enable_build_on_save = false } } },
+    },
+    -- Prefer clangd/ZLS already on PATH; otherwise let Mason install them.
+    prefer_external = { clangd = "clangd", zls = "zls" },
+    -- Include injection languages (regex, jsdoc, etc.) used by these parsers.
+    parsers = {
+        "bash",
+        "c",
+        "cpp",
+        "css",
+        "dockerfile",
+        "html",
+        "javascript",
+        "jsdoc",
+        "json",
+        "lua",
+        "luadoc",
+        "luap",
+        "markdown",
+        "markdown_inline",
+        "php",
+        "python",
+        "query",
+        "regex",
+        "ruby",
+        "rust",
+        "toml",
+        "tsx",
+        "typescript",
+        "vim",
+        "vimdoc",
+        "yaml",
+        "zig",
+    },
+}

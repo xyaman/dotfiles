@@ -10,22 +10,24 @@ return {
             javascriptreact = { "prettierd", "prettier", stop_after_first = true },
             html = { "prettierd", "prettier", stop_after_first = true },
             css = { "prettierd", "prettier", stop_after_first = true },
-            php = { "php-cs-fixer", fallback = "lsp" },
-            zig = { "zigfmt", fallback = "lsp" },
-            rust = { "rustfmt", fallback = "lsp" },
-            ruby = { "rubocop", fallback = "lsp" },
-            odin = { "odinfmt", fallback = "lsp" },
+            php = { "php-cs-fixer", lsp_format = "fallback" },
+            zig = { "zigfmt", lsp_format = "fallback" },
+            rust = { "rustfmt", lsp_format = "fallback" },
+            ruby = { "rubocop", lsp_format = "fallback" },
+            odin = { "odinfmt", lsp_format = "fallback" },
             -- For filetypes without a formatter:
             ["_"] = { "trim_whitespace", "trim_newlines" },
         },
+        default_format_opts = { lsp_format = "fallback" },
         notify_on_error = true,
         formatters = {
             -- Require a Prettier configuration file to format.
             prettier = { require_cwd = true },
+            prettierd = { require_cwd = true },
         },
         format_on_save = function(bufnr)
             -- Disable with a global or buffer-local variable
-            if not vim.g.autoformat then
+            if vim.g.autoformat == false or vim.b[bufnr].autoformat == false then
                 return
             end
 

@@ -8,16 +8,16 @@ return {
         },
         completion = {
             menu = {
-                border = "single",
+                border = "rounded",
             },
             documentation = {
                 auto_show = true,
-                window = { border = "single" },
+                window = { border = "rounded" },
             },
         },
         signature = {
             enabled = true,
-            window = { border = "single" },
+            window = { border = "rounded" },
         },
     },
 }

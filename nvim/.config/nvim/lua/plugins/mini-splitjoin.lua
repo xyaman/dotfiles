@@ -1,6 +1,6 @@
 -- Split/join blocks of code.
 return {
-    "echasnovski/mini.splitjoin",
+    "nvim-mini/mini.splitjoin",
     event = "VeryLazy",
     opts = {},
 }

@@ -3,8 +3,7 @@ local opts = { noremap = true }
 -- Normal: Config & Lazy
 vim.keymap.set("n", "<leader>L", "<cmd>Lazy<cr>", { desc = "Lazy" })
 vim.keymap.set("n", "<leader>vim", function()
-    vim.cmd("e ~/dotfiles/nvim/.config/nvim/")
-    vim.fn.chdir("~/dotfiles/nvim/.config/nvim/")
+    vim.cmd.edit(vim.fn.stdpath("config"))
 end, { desc = "Opens vim config directory." })
 
 -- Normal: Some expected behaviours

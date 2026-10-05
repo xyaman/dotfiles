@@ -16,8 +16,7 @@ vim.o.signcolumn = "yes" -- Always show signcolumn (less flicker)
 vim.o.splitbelow = true -- Horizontal splits will be below
 vim.o.splitkeep = "screen" -- Reduce scroll during window split
 vim.o.splitright = true -- Vertical splits will be to the right
-vim.o.winborder = "single" -- Use border in floating windows
--- vim.o.pumborder      = "single"   -- Use border in completion window (@Todo: what else?)
+vim.o.winborder = "rounded" -- Use border in floating windows
 vim.o.guicursor = "" -- Use block cursor
 vim.o.wrap = false -- Disable wrap
 vim.o.linebreak = true -- Wrap lines at 'breakat' (if 'wrap' is set)
@@ -28,8 +27,7 @@ vim.opt.fillchars = { eob = " ", fold = "╌" }
 
 -- Folds (see `:h fold-commands`, `:h zM`, `:h zR`, `:h zA`, `:h zj`)
 vim.o.foldlevel = 10 -- Fold nothing by default; set to 0 or 1 to fold
-vim.o.foldmethod = "expr" -- Fold based on treesitter
-vim.o.foldexpr = "v:lua.vim.treesitter.foldexpr()"
+vim.o.foldmethod = "manual" -- Treesitter enables expression folds only when a parser is available
 vim.o.foldnestmax = 10 -- Limit number of fold levels
 vim.o.foldtext = "" -- Show text under fold with its highlighting
 
