@@ -1,0 +1,1 @@
+{ "name": "web", "extensions": { "sh.yuke": { "entry": "./index.js" } } }

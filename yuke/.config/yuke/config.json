@@ -1,0 +1,4 @@
+{
+  // Each entry is a plugin folder with a plugin.json. Order matters only for `uses` and `provides`.
+  "plugins": ["./plugins/herdr", "./plugins/web", "./plugins/xyastack", "./plugins/vim-mode"]
+}
