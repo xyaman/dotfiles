@@ -79,11 +79,25 @@ export function session(s: SessionContext): void {
       properties: { query: { type: "string", description: "Search query." } },
       required: ["query"],
     },
-    async execute({ query }, { signal }) {
-      query = query.trim();
+    hints: { title: "Search", subject: { argument: "query", kind: "text" } },
+    async execute(args, context) {
+      const query = args.query.trim();
       if (!query) throw new Error("query is required");
-      const output = await run("/free/search", { queryParams: { query } }, signal);
-      return JSON.stringify(output);
+      const output = await run("/free/search", { queryParams: { query } }, context.signal);
+      const hosts = new Set<string>();
+      for (const result of output.results) {
+        if (!isObject(result) || typeof result.url !== "string") continue;
+        const host = URL.parse(result.url)?.hostname;
+        if (host) hosts.add(host);
+      }
+      const visible = [...hosts].slice(0, 3);
+      if (hosts.size > 3) visible.push(`+${hosts.size - 3} more`);
+      const count = output.results.length;
+      const summary = count === 0 ? "No results" : `${count} result${count === 1 ? "" : "s"}`;
+      return {
+        text: JSON.stringify(output),
+        display: [{ kind: "markdown", text: summary + (visible.length > 0 ? ` (${visible.join(", ")})` : "") }],
+      };
     },
   });
 
@@ -96,11 +110,24 @@ export function session(s: SessionContext): void {
       properties: { url: { type: "string", description: "http(s) URL." } },
       required: ["url"],
     },
-    async execute({ url }, { signal }) {
-      const parsed = new URL(url.trim());
+    hints: { title: "Fetch", subject: { argument: "url", kind: "uri" } },
+    async execute(args, context) {
+      const parsed = new URL(args.url.trim());
       if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("url must be http(s)");
-      const output = await run("/free/fetch", { body: { urls: [parsed.href], format: "markdown" } }, signal);
-      return { text: JSON.stringify(output), isError: output.results.length === 0 };
+      const output = await run("/free/fetch", { body: { urls: [parsed.href], format: "markdown" } }, context.signal);
+      const text = JSON.stringify(output);
+      if (output.results.length === 0) return { text, isError: true };
+      const encoder = new TextEncoder();
+      let bytes = 0;
+      for (const result of output.results) {
+        if (isObject(result) && typeof result.text === "string") bytes += encoder.encode(result.text).length;
+      }
+      const size = bytes < 1024
+        ? `${bytes} B`
+        : bytes < 1024 * 1024
+          ? `${(bytes / 1024).toFixed(1)} KiB`
+          : `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
+      return { text, display: [{ kind: "markdown", text: `Fetched · ${size}` }] };
     },
   });
 }

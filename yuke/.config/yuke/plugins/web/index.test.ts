@@ -179,6 +179,7 @@ test("empty search results are a successful response", async () => {
     const result = await session.call("web_search", { query: "no matches" });
     equal(result.isError, false);
     equal(result.text, JSON.stringify(output));
+    equal(result.display, [{ kind: "markdown", text: "No results" }]);
   } finally { mock.restore(); }
 });
 
@@ -243,5 +244,96 @@ test("malformed JSON, envelopes, outputs, and unknown states are rejected", asyn
       assert(result.isError, `response ${i} should fail`);
     }
     equal(mock.calls.length, responses.length);
+  } finally { mock.restore(); }
+});
+
+test("search summarizes unique hosts in result order without changing model content", async () => {
+  const output = { results: [
+    { url: "https://github.com/first", snippet: "Keep this snippet" },
+    { url: "https://docs.rs/package" },
+    { url: "https://github.com/second" },
+    { url: "https://tokio.rs/" },
+    { url: "https://example.com/" },
+    { url: "https://rust-lang.org/" },
+  ], total_results: 100 };
+  const mock = mockFetch([completed(output)]);
+  try {
+    await using host = await createHost({ plugins: [{ folder }] });
+    const session = await host.openSession();
+    const result = await session.call("web_search", { query: "Rust async cancellation" });
+    equal(result.display, [{ kind: "markdown", text: "6 results (github.com, docs.rs, tokio.rs, +2 more)" }]);
+    equal(JSON.parse(result.text), output);
+    equal(result.isError, false);
+  } finally { mock.restore(); }
+});
+
+test("search handles one result and unusable host fields without losing results", async () => {
+  const outputs = [
+    { results: [{ url: "https://example.com/page" }] },
+    { results: [null, {}, { url: "not a URL" }, { url: 42 }, { url: "mailto:hello@example.com" }] },
+  ];
+  const mock = mockFetch(outputs.map(completed));
+  try {
+    await using host = await createHost({ plugins: [{ folder }] });
+    const session = await host.openSession();
+    const one = await session.call("web_search", { query: "one" });
+    equal(one.display, [{ kind: "markdown", text: "1 result (example.com)" }]);
+    const missing = await session.call("web_search", { query: "missing hosts" });
+    equal(missing.display, [{ kind: "markdown", text: "5 results" }]);
+    equal(JSON.parse(missing.text), outputs[1]);
+    equal(missing.isError, false);
+  } finally { mock.restore(); }
+});
+
+test("fetch reports UTF-8 page bytes rather than characters or JSON size", async () => {
+  const outputs = [
+    { results: [{ text: "日本語", title: "Metadata is not page content" }] },
+    { results: [{ text: "a".repeat(1023) }] },
+    { results: [{ text: "é".repeat(512) }] },
+    { results: [{ text: "a".repeat(16042) }] },
+    { results: [{ text: "a".repeat(1024 * 1024) }] },
+    { results: [{ text: "" }] },
+  ];
+  const expected = [
+    "Fetched · 9 B", "Fetched · 1023 B", "Fetched · 1.0 KiB",
+    "Fetched · 15.7 KiB", "Fetched · 1.0 MiB", "Fetched · 0 B",
+  ];
+  const mock = mockFetch(outputs.map(completed));
+  try {
+    await using host = await createHost({ plugins: [{ folder }] });
+    const session = await host.openSession();
+    for (const [index, output] of outputs.entries()) {
+      const result = await session.call("web_fetch", { url: "https://example.com/" });
+      equal(result.display, [{ kind: "markdown", text: expected[index] }]);
+      equal(JSON.parse(result.text), output);
+      equal(result.isError, false);
+    }
+  } finally { mock.restore(); }
+});
+
+test("web calls keep query and URL headers with compact displays in the transcript", async () => {
+  const { reply } = await import("yuke:test");
+  const mock = mockFetch([
+    completed({ results: [{ url: "https://example.com/" }] }),
+    completed({ results: [{ text: "Page" }] }),
+  ]);
+  try {
+    await using host = await createHost({
+      plugins: [{ folder }],
+      replies: [
+        reply.toolCall("web_search", { query: "test query" }),
+        reply.toolCall("web_fetch", { url: "https://example.com/" }),
+        reply.text("done"),
+      ],
+    });
+    const session = await host.openSession();
+    await session.send("search and fetch");
+    const calls = session.transcript.entries.filter((entry) => entry.kind === "tool");
+    equal(calls.map((entry) => [entry.hints, entry.display]), [
+      [{ title: "Search", subject: { argument: "query", kind: "text" }, preview: "head" },
+        [{ kind: "markdown", text: "1 result (example.com)" }]],
+      [{ title: "Fetch", subject: { argument: "url", kind: "uri" }, preview: "head" },
+        [{ kind: "markdown", text: "Fetched · 4 B" }]],
+    ]);
   } finally { mock.restore(); }
 });
