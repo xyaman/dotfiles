@@ -1,9 +1,28 @@
-import type { SessionContext } from "yuke:plugins";
+import { writeFile } from "yuke:fs";
+import type { PluginContext, SessionContext } from "yuke:plugins";
 import { env } from "yuke:process";
 
 const API = "https://api.monid.ai";
 const PENDING = new Set(["READY", "RUNNING", "STOPPING"]);
+const OUTPUT_BYTES = 50 * 1024;
+let dataDirectory: string;
+let outputSequence = 0;
 type Output = Record<string, unknown> & { results: unknown[] };
+
+export function apply(ctx: PluginContext): void {
+  dataDirectory = ctx.dataDir;
+}
+
+async function limitedText(text: string, signal: AbortSignal): Promise<string> {
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(text);
+  if (bytes.length <= OUTPUT_BYTES) return text;
+  const path = `${dataDirectory}/${Date.now()}-${++outputSequence}.txt`;
+  await writeFile(path, bytes, { signal });
+  const notice = `\n[web output truncated. Full output: ${path}. Use read or exec to inspect it.]`;
+  const head = new TextDecoder().decode(bytes.subarray(0, OUTPUT_BYTES - encoder.encode(notice).length), { stream: true });
+  return head + notice;
+}
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -64,6 +83,9 @@ async function run(endpoint: "/free/search" | "/free/fetch", input: unknown, sig
       throw new Error(`Invalid TinyFish response: ${JSON.stringify(job.output)}`);
     }
     return job.output as Output;
+  } catch (error) {
+    signal.throwIfAborted();
+    throw new Error(await limitedText(error instanceof Error ? error.message : String(error), signal));
   } finally {
     clearTimeout(timer);
   }
@@ -72,7 +94,7 @@ async function run(endpoint: "/free/search" | "/free/fetch", input: unknown, sig
 export function session(s: SessionContext): void {
   s.tools.define({
     name: "web_search",
-    description: "Live web search via TinyFish's free endpoint. Returns all results and metadata without truncation. Use web_fetch for full page text.",
+    description: "Live web search via TinyFish's free endpoint. Returns at most 50 KiB. Small responses are JSON. Truncated responses include a path to the full output. Use web_fetch for page text.",
     concurrency: "parallel",
     parameters: {
       type: "object",
@@ -95,7 +117,7 @@ export function session(s: SessionContext): void {
       const count = output.results.length;
       const summary = count === 0 ? "No results" : `${count} result${count === 1 ? "" : "s"}`;
       return {
-        text: JSON.stringify(output),
+        text: await limitedText(JSON.stringify(output), context.signal),
         display: [{ kind: "markdown", text: summary + (visible.length > 0 ? ` (${visible.join(", ")})` : "") }],
       };
     },
@@ -103,7 +125,7 @@ export function session(s: SessionContext): void {
 
   s.tools.define({
     name: "web_fetch",
-    description: "Fetch an http(s) URL as Markdown via TinyFish's free endpoint. Returns full page text and metadata without truncation.",
+    description: "Fetch an http(s) URL as Markdown via TinyFish's free endpoint. Returns at most 50 KiB. Small responses are JSON. Truncated responses include a path to the full output.",
     concurrency: "parallel",
     parameters: {
       type: "object",
@@ -115,7 +137,7 @@ export function session(s: SessionContext): void {
       const parsed = new URL(args.url.trim());
       if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("url must be http(s)");
       const output = await run("/free/fetch", { body: { urls: [parsed.href], format: "markdown" } }, context.signal);
-      const text = JSON.stringify(output);
+      const text = await limitedText(JSON.stringify(output), context.signal);
       if (output.results.length === 0) return { text, isError: true };
       const encoder = new TextEncoder();
       let bytes = 0;

@@ -12,11 +12,13 @@ environment; it does not load an `.env` file.
 - `web_search({ query })`: TinyFish `/free/search` through Monid.
 - `web_fetch({ url })`: TinyFish `/free/fetch`, requesting Markdown.
 
-Both tools run concurrently (`concurrency: "parallel"`). They return the complete
-provider output as compact JSON, retaining every result, full text, whitespace, and
-metadata. There are no plugin-side result-count or output-length limits. This is
-intentionally more permissive than yuke's built-in `read` / `exec` 50 KiB output
-cap; large pages can consume substantial context. Provider-side limits still apply.
+Both tools run concurrently (`concurrency: "parallel"`). Each tool returns at most
+50 KiB of UTF-8 text, including its truncation notice. This matches the output
+budget of yuke's built-in `read` / `exec` tools. A response within the budget stays
+as complete compact JSON. An oversized response becomes a text prefix with a notice
+and an absolute path to the full output. Use `read` or `exec` to inspect that file.
+The file stays in the web plugin's data directory across reloads. Provider-side
+limits still apply. The cap limits model context, not network response size.
 
 Free quotas through Monid (not TinyFish direct-account allowances):
 
@@ -32,11 +34,12 @@ TinyFish's recommendation to allow time for its 110-second backend timeout and
 120-second CDN ceiling.
 
 Error handling distinguishes Monid run status, provider HTTP status, and fetch
-per-URL errors (which can arrive with HTTP 200). Fetch failures retain the complete
+per-URL errors (which can arrive with HTTP 200). Fetch failures retain
 `errors[]` objects, including `error`, `status`, URL, and any retry hints. Empty
 search results are valid; a fetch with no successful result is an error. HTTP error
-bodies are preserved, and `Retry-After` is included when returned by Monid. There
-are no automatic web retries or paid fallbacks.
+bodies include `Retry-After` when Monid returns it. Oversized errors use the same
+50 KiB cap and full-output files as successful responses. The tools have no
+automatic web retries or paid fallbacks.
 
 Search uses `input.queryParams.query`; fetch uses
 `input.body: { urls: [url], format: "markdown" }` in Monid's `POST /v1/run` envelope.

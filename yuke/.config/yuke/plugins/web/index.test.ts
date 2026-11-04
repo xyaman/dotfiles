@@ -1,3 +1,4 @@
+import { readTextFile } from "yuke:fs";
 import { assert, createHost, equal, test } from "yuke:test";
 
 const folder = import.meta.dirname!;
@@ -14,11 +15,20 @@ function mockFetch(responses: unknown[]): { calls: { url: string; body: unknown 
   return { calls, restore: () => { globalThis.fetch = original; } };
 }
 
+async function savedText(text: string): Promise<string> {
+  assert(new TextEncoder().encode(text).length <= 51_200, "tool output exceeds 50 KiB");
+  const notice = /\n\[web output truncated\. Full output: (.+)\. Use read or exec to inspect it\.\]$/.exec(text);
+  assert(notice?.[1], "truncation must name the full-output file");
+  const full = await readTextFile(notice[1], { fatal: true });
+  assert(full.startsWith(text.slice(0, notice.index)), "the preview must be a UTF-8 prefix of the full output");
+  return full;
+}
+
 function completed(output: unknown): unknown {
   return { status: "COMPLETED", providerResponse: { httpStatus: 200 }, output };
 }
 
-test("search preserves all results, long fields, and metadata", async () => {
+test("search caps large results and saves every result and metadata", async () => {
   const output = {
     results: Array.from({ length: 20 }, (_, i) => ({
       title: `${i}: ${"title ".repeat(100)}`,
@@ -34,16 +44,15 @@ test("search preserves all results, long fields, and metadata", async () => {
     const session = await host.openSession();
     const result = await session.call("web_search", { query: "  test query  " });
     equal(result.isError, false);
-    equal(result.text, JSON.stringify(output));
-    equal(JSON.parse(result.text), output);
-    assert(result.text.length > 50 * 1024);
+    equal(await savedText(result.text), JSON.stringify(output));
+    equal(result.display, [{ kind: "markdown", text: "20 results (example.com)" }]);
     equal(mock.calls, [{ url: "https://api.monid.ai/v1/run", body: {
       provider: "tinyfish", endpoint: "/free/search", input: { queryParams: { query: "test query" } },
     } }]);
   } finally { mock.restore(); }
 });
 
-test("fetch preserves full Markdown, whitespace, links, and metadata", async () => {
+test("fetch caps large Markdown and saves whitespace, links, and metadata", async () => {
   const output = { results: [{
     title: "Example", url: "https://example.com/", text: "# Heading\n\n\n  indented 日本語\n".repeat(5000),
     links: ["https://example.com/link"], extra: "keep me",
@@ -54,8 +63,7 @@ test("fetch preserves full Markdown, whitespace, links, and metadata", async () 
     const session = await host.openSession();
     const result = await session.call("web_fetch", { url: "https://example.com/" });
     equal(result.isError, false);
-    equal(result.text, JSON.stringify(output));
-    equal(JSON.parse(result.text), output);
+    equal(await savedText(result.text), JSON.stringify(output));
     equal(mock.calls[0]?.body, {
       provider: "tinyfish", endpoint: "/free/fetch",
       input: { body: { urls: ["https://example.com/"], format: "markdown" } },
@@ -305,7 +313,7 @@ test("fetch reports UTF-8 page bytes rather than characters or JSON size", async
     for (const [index, output] of outputs.entries()) {
       const result = await session.call("web_fetch", { url: "https://example.com/" });
       equal(result.display, [{ kind: "markdown", text: expected[index] }]);
-      equal(JSON.parse(result.text), output);
+      equal(JSON.parse(index === 4 ? await savedText(result.text) : result.text), output);
       equal(result.isError, false);
     }
   } finally { mock.restore(); }
@@ -335,5 +343,68 @@ test("web calls keep query and URL headers with compact displays in the transcri
       [{ title: "Fetch", subject: { argument: "url", kind: "uri" }, preview: "head" },
         [{ kind: "markdown", text: "Fetched · 4 B" }]],
     ]);
+  } finally { mock.restore(); }
+});
+
+test("the 50 KiB boundary keeps exact output and truncates one byte more", async () => {
+  const padding = "x".repeat(51_173);
+  const mock = mockFetch([
+    completed({ results: [], padding }),
+    completed({ results: [], padding: `${padding}x` }),
+  ]);
+  try {
+    await using host = await createHost({ plugins: [{ folder }] });
+    const session = await host.openSession();
+    const exact = await session.call("web_search", { query: "exact" });
+    equal(new TextEncoder().encode(exact.text).length, 51_200);
+    equal(exact.text, `{"results":[],"padding":"${padding}"}`);
+    const over = await session.call("web_search", { query: "over" });
+    equal(await savedText(over.text), `{"results":[],"padding":"${padding}x"}`);
+  } finally { mock.restore(); }
+});
+
+test("large upstream errors and per-page errors stay capped and retain full details on disk", async () => {
+  const detail = "quota detail ".repeat(10_000) + "END OF DETAILS";
+  const body = `HTTP failure: ${detail}`;
+  const page = { results: [], errors: [{ error: "bot_blocked", detail }] };
+  const mock = mockFetch([
+    new Response(body, { status: 429, headers: { "Retry-After": "60" } }),
+    completed(page),
+  ]);
+  try {
+    await using host = await createHost({ plugins: [{ folder }] });
+    const session = await host.openSession();
+    const upstream = await session.call("web_search", { query: "error" });
+    equal(upstream.isError, true);
+    equal(await savedText(upstream.text), `Monid HTTP 429 (Retry-After: 60): ${body}`);
+    const blocked = await session.call("web_fetch", { url: "https://example.com/" });
+    equal(blocked.isError, true);
+    equal(await savedText(blocked.text), JSON.stringify(page));
+  } finally { mock.restore(); }
+});
+
+test("parallel large web results enter model context only as bounded previews", async () => {
+  const { reply } = await import("yuke:test");
+  const mock = mockFetch([
+    completed({ results: [{ snippet: "search ".repeat(20_000) }], marker: "search-end" }),
+    completed({ results: [{ text: "page ".repeat(500_000) }], marker: "fetch-end" }),
+  ]);
+  try {
+    await using host = await createHost({
+      plugins: [{ folder }],
+      replies: [reply.toolCalls([
+        { name: "web_search", args: { query: "large" } },
+        { name: "web_fetch", args: { url: "https://example.com/" } },
+      ]), reply.text("done")],
+    });
+    const session = await host.openSession({ model: { provider: "openai", model: "gpt-4.1" } });
+    await session.send("search and fetch");
+    const results = host.requests[1]?.messages.filter(message => message.role === "tool");
+    assert(results);
+    equal(results.length, 2);
+    const search = JSON.parse(await savedText(results[0]!.text));
+    const fetch = JSON.parse(await savedText(results[1]!.text));
+    equal([search.marker, fetch.marker], ["search-end", "fetch-end"]);
+    equal([search.results[0].snippet.length, fetch.results[0].text.length], [140_000, 2_500_000]);
   } finally { mock.restore(); }
 });
