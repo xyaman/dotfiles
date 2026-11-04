@@ -1,0 +1,75 @@
+{
+  "providers": [
+    {
+      "id": "cc",
+      "base_url": "http://127.0.0.1:4123/v1",
+      "session_header": "session_id",
+      "endpoints": [
+        {
+          "protocol": "anthropic_messages",
+          "cache_breakpoint": false
+        }
+      ],
+      "models": [
+        {
+          "id": "opus",
+          "upstream_id": "opus",
+          "limits": {
+            "context_window": 1000000,
+            "max_output_tokens": 128000
+          },
+          "reasoning_levels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "flags": {
+            "supports_tool_search": true,
+            "anthropic_thinking": "adaptive"
+          }
+        },
+        {
+          "id": "sonnet",
+          "upstream_id": "sonnet",
+          "limits": {
+            "context_window": 1000000,
+            "max_output_tokens": 128000
+          },
+          "reasoning_levels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "flags": {
+            "supports_tool_search": true,
+            "anthropic_thinking": "adaptive"
+          }
+        },
+        {
+          "id": "fable",
+          "upstream_id": "fable",
+          "limits": {
+            "context_window": 1000000,
+            "max_output_tokens": 128000
+          },
+          "reasoning_levels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "flags": {
+            "supports_tool_search": true,
+            "can_disable_reasoning": false,
+            "anthropic_thinking": "adaptive"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -3,7 +3,17 @@
     {
       "git": "https://github.com/lostcoords/yuke-plugins",
       "folder": "plugins/btw",
-      "commit": "5faf29fa7941335996d2f4d3f050412fbf40396a"
+      "commit": "3612d4d516f94a9bd3f147b26fc0e7e5063cc41a"
+    },
+    {
+      "git": "https://github.com/lostcoords/yuke-plugins",
+      "folder": "plugins/subagents",
+      "commit": "3612d4d516f94a9bd3f147b26fc0e7e5063cc41a"
+    },
+    {
+      "git": "https://github.com/lostcoords/yuke-plugins",
+      "folder": "plugins/vim",
+      "commit": "3612d4d516f94a9bd3f147b26fc0e7e5063cc41a"
     }
   ]
 }

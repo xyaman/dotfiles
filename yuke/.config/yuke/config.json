@@ -5,6 +5,14 @@
       "folder": "plugins/btw"
     },
     "./plugins/herdr",
-    "./plugins/web"
+    "./plugins/web",
+    {
+      "git": "https://github.com/lostcoords/yuke-plugins",
+      "folder": "plugins/vim"
+    },
+    {
+      "git": "https://github.com/lostcoords/yuke-plugins",
+      "folder": "plugins/subagents"
+    }
   ]
 }
