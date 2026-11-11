@@ -1,9 +1,0 @@
-{
-  "extends": "/home/xyaman/.local/lib/yuke/tsconfig.json",
-  "include": [
-    "./**/*.ts"
-  ],
-  "exclude": [
-    "./node_modules"
-  ]
-}

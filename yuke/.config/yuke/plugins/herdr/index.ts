@@ -35,7 +35,7 @@ export function report(ctx: PluginContext, path: string, pane: string): Cleanup 
       AbortSignal.timeout(timeoutMs),
       ...(cleanup ? [] : [ctx.signal]),
     ]);
-    using socket = await connect({ transport: "unix", path, signal });
+    using socket = await connect({ path, signal });
     await socket.write(new TextEncoder().encode(JSON.stringify({
       id: requestId, method, params: { pane_id: pane, source: "custom:yuke", agent: "yuke", seq, ...params },
     }) + "\n"));
