@@ -1,9 +1,9 @@
-import { assert, createHost, equal, listen, reply, test } from "yuke:test";
-import type { QuestionAnswer } from "yuke:plugins";
+import { assert, createHost, equal, listenOnTemporarySocket, reply, test } from "yuke:test";
+import type { QuestionAnswer } from "yuke:protocol";
 import { report } from "./index.ts";
 
 test("reports idle, working, blocked, and releases its label on exit", async () => {
-  using server = listen();
+  using server = listenOnTemporarySocket();
   const requests: { id: string; method: string; params: { state?: string; seq: number; pane_id: string; source: string; agent: string } }[] = [];
   let stopped = false;
   const serve = async () => {
@@ -39,7 +39,7 @@ test("reports idle, working, blocked, and releases its label on exit", async () 
         name: "herdr-test",
         apply: ctx => report(ctx, server.path, "test-pane"),
         session(s) {
-          s.tools.define({
+          s.tools.add({
             name: "ask_test", description: "Ask", concurrency: "serial",
             parameters: { type: "object", properties: {} },
             async execute(_, { signal }) {
@@ -55,7 +55,7 @@ test("reports idle, working, blocked, and releases its label on exit", async () 
     try {
       await waitFor(() => requests.some(r => r.params.state === "idle"));
       const session = await host.openSession();
-      const sending = session.send("work");
+      const sending = session.sendMessage("work");
       await waitFor(() => requests.some(r => r.params.state === "blocked") && answer !== undefined);
       assert(requests.some(r => r.params.state === "working"));
       answer!([{ id: "continue", values: [], other: "yes" }]);

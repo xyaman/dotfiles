@@ -1,5 +1,6 @@
 import { connect } from "yuke:net";
-import type { Cleanup, PluginContext, SessionState, InteractionId } from "yuke:plugins";
+import type { Cleanup, PluginContext } from "yuke:plugins";
+import type { SessionState, InteractionId } from "yuke:protocol";
 import { env } from "yuke:process";
 
 const timeoutMs = 250;
@@ -18,7 +19,7 @@ export function apply(ctx: PluginContext): Cleanup | undefined {
 }
 
 export function report(ctx: PluginContext, path: string, pane: string): Cleanup {
-  const sessions = new Map<string, { state: SessionState; questions: Set<InteractionId> }>();
+  const sessions = new Map<string, { state: SessionState; interactions: Set<InteractionId> }>();
   let id = 0;
   let seq = 0;
   let attempts = 0;
@@ -81,7 +82,7 @@ export function report(ctx: PluginContext, path: string, pane: string): Cleanup 
 
   function refresh(): void {
     const values = [...sessions.values()];
-    const state: State = values.some(s => s.questions.size > 0) ? "blocked"
+    const state: State = values.some(s => s.interactions.size > 0) ? "blocked"
       : values.some(s => s.state === "running") ? "working" : "idle";
     if (state !== desired) {
       desired = state;
@@ -92,18 +93,18 @@ export function report(ctx: PluginContext, path: string, pane: string): Cleanup 
     schedule();
   }
 
-  ctx.on("session.opened", ({ sessionId, state, questions }) => {
-    sessions.set(sessionId, { state, questions: new Set(questions) });
+  ctx.addListener("session.opened", ({ sessionId, state, interactions }) => {
+    sessions.set(sessionId, { state, interactions: new Set(interactions) });
     refresh();
   });
-  ctx.on("session.closed", ({ sessionId }) => { sessions.delete(sessionId); refresh(); });
-  ctx.on("session.update", ({ sessionId, update }) => {
+  ctx.addListener("session.closed", ({ sessionId }) => { sessions.delete(sessionId); refresh(); });
+  ctx.addListener("session.update", ({ sessionId, update }) => {
     const session = sessions.get(sessionId);
     if (!session) return;
     switch (update.sessionUpdate) {
       case "state": session.state = update.state; break;
-      case "interaction_requested": session.questions.add(update.interactionId); break;
-      case "interaction_closed": session.questions.delete(update.interactionId); break;
+      case "interaction_requested": session.interactions.add(update.interactionId); break;
+      case "interaction_closed": session.interactions.delete(update.interactionId); break;
       default: return;
     }
     refresh();

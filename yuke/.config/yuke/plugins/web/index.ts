@@ -92,7 +92,7 @@ async function run(endpoint: "/free/search" | "/free/fetch", input: unknown, sig
 }
 
 export function session(s: SessionContext): void {
-  s.tools.define({
+  s.tools.add({
     name: "web_search",
     description: "Live web search via TinyFish's free endpoint. Returns at most 50 KiB. Small responses are JSON. Truncated responses include a path to the full output. Use web_fetch for page text.",
     concurrency: "parallel",
@@ -123,7 +123,7 @@ export function session(s: SessionContext): void {
     },
   });
 
-  s.tools.define({
+  s.tools.add({
     name: "web_fetch",
     description: "Fetch an http(s) URL as Markdown via TinyFish's free endpoint. Returns at most 50 KiB. Small responses are JSON. Truncated responses include a path to the full output.",
     concurrency: "parallel",

@@ -141,7 +141,7 @@ test("search and fetch execute concurrently in one model response", async () => 
       ]), reply.text("done")],
     });
     const session = await host.openSession();
-    await session.send("search and fetch");
+    await session.sendMessage("search and fetch");
     equal(endpoints.sort(), ["/free/fetch", "/free/search"]);
   } finally { globalThis.fetch = original; }
 });
@@ -335,7 +335,7 @@ test("web calls keep query and URL headers with compact displays in the transcri
       ],
     });
     const session = await host.openSession();
-    await session.send("search and fetch");
+    await session.sendMessage("search and fetch");
     const calls = session.transcript.entries.filter((entry) => entry.kind === "tool");
     equal(calls.map((entry) => [entry.hints, entry.display]), [
       [{ title: "Search", subject: { argument: "query", kind: "text" }, preview: "head" },
@@ -398,7 +398,7 @@ test("parallel large web results enter model context only as bounded previews", 
       ]), reply.text("done")],
     });
     const session = await host.openSession({ model: { provider: "openai", model: "gpt-4.1" } });
-    await session.send("search and fetch");
+    await session.sendMessage("search and fetch");
     const results = host.requests[1]?.messages.filter(message => message.role === "tool");
     assert(results);
     equal(results.length, 2);
