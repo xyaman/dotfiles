@@ -103,8 +103,8 @@ export function report(ctx: PluginContext, path: string, pane: string): Cleanup 
     if (!session) return;
     switch (update.sessionUpdate) {
       case "state": session.state = update.state; break;
-      case "interaction_requested": session.interactions.add(update.interactionId); break;
-      case "interaction_closed": session.interactions.delete(update.interactionId); break;
+      case "interactionRequested": session.interactions.add(update.interactionId); break;
+      case "interactionClosed": session.interactions.delete(update.interactionId); break;
       default: return;
     }
     refresh();
