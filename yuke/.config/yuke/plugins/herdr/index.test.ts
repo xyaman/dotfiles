@@ -1,4 +1,4 @@
-import { assert, createHost, equal, listenOnTemporarySocket, reply, test } from "yuke:test";
+import { assert, createHost, assertEquals, listenOnTemporarySocket, reply, test } from "yuke:test";
 import type { QuestionAnswer } from "yuke:protocol";
 import { report } from "./index.ts";
 
@@ -62,12 +62,12 @@ test("reports idle, working, blocked, and releases its label on exit", async () 
       await sending;
       await waitFor(() => requests.at(-1)?.params.state === "idle");
     } finally { await host.close(); }
-    equal(requests.at(-1)?.method, "pane.release_agent");
+    assertEquals(requests.at(-1)?.method, "pane.release_agent");
     for (let i = 0; i < requests.length; i++) {
       const params = requests[i]!.params;
-      equal(params.pane_id, "test-pane");
-      equal(params.source, "custom:yuke");
-      equal(params.agent, "yuke");
+      assertEquals(params.pane_id, "test-pane");
+      assertEquals(params.source, "custom:yuke");
+      assertEquals(params.agent, "yuke");
       if (i) assert(params.seq > requests[i - 1]!.params.seq);
     }
   } finally {

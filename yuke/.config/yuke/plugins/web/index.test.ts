@@ -1,5 +1,5 @@
 import { readTextFile } from "yuke:fs";
-import { assert, createHost, equal, test } from "yuke:test";
+import { assert, createHost, assertEquals, test } from "yuke:test";
 
 const folder = import.meta.dirname!;
 
@@ -43,10 +43,10 @@ test("search caps large results and saves every result and metadata", async () =
     await using host = await createHost({ plugins: [{ folder }] });
     const session = await host.openSession();
     const result = await session.call("web_search", { query: "  test query  " });
-    equal(result.isError, false);
-    equal(await savedText(result.text), JSON.stringify(output));
-    equal(result.display, [{ kind: "markdown", text: "20 results (example.com)" }]);
-    equal(mock.calls, [{ url: "https://api.monid.ai/v1/run", body: {
+    assertEquals(result.isError, false);
+    assertEquals(await savedText(result.text), JSON.stringify(output));
+    assertEquals(result.display, [{ kind: "markdown", text: "20 results (example.com)" }]);
+    assertEquals(mock.calls, [{ url: "https://api.monid.ai/v1/run", body: {
       provider: "tinyfish", endpoint: "/free/search", input: { queryParams: { query: "test query" } },
     } }]);
   } finally { mock.restore(); }
@@ -62,9 +62,9 @@ test("fetch caps large Markdown and saves whitespace, links, and metadata", asyn
     await using host = await createHost({ plugins: [{ folder }] });
     const session = await host.openSession();
     const result = await session.call("web_fetch", { url: "https://example.com/" });
-    equal(result.isError, false);
-    equal(await savedText(result.text), JSON.stringify(output));
-    equal(mock.calls[0]?.body, {
+    assertEquals(result.isError, false);
+    assertEquals(await savedText(result.text), JSON.stringify(output));
+    assertEquals(mock.calls[0]?.body, {
       provider: "tinyfish", endpoint: "/free/fetch",
       input: { body: { urls: ["https://example.com/"], format: "markdown" } },
     });
@@ -76,9 +76,9 @@ test("invalid input makes no request", async () => {
   try {
     await using host = await createHost({ plugins: [{ folder }] });
     const session = await host.openSession();
-    equal((await session.call("web_search", { query: "  " })).isError, true);
-    equal((await session.call("web_fetch", { url: "file:///etc/passwd" })).isError, true);
-    equal(mock.calls.length, 0);
+    assertEquals((await session.call("web_search", { query: "  " })).isError, true);
+    assertEquals((await session.call("web_fetch", { url: "file:///etc/passwd" })).isError, true);
+    assertEquals(mock.calls.length, 0);
   } finally { mock.restore(); }
 });
 
@@ -100,7 +100,7 @@ test("rate limits and page failures are errors, never a paid fallback", async ()
     assert(provider.isError && provider.text.includes("429"));
     const quota = await session.call("web_search", { query: "test" });
     assert(quota.isError && quota.text.includes("Quota exceeded"));
-    equal(mock.calls.length, 4);
+    assertEquals(mock.calls.length, 4);
     assert(mock.calls.every(call => JSON.stringify(call.body).includes('"/free/')));
   } finally { mock.restore(); }
 });
@@ -112,10 +112,10 @@ test("asynchronous runs are polled for the complete output", async () => {
     await using host = await createHost({ plugins: [{ folder }] });
     const session = await host.openSession();
     const result = await session.call("web_search", { query: "async" });
-    equal(result.isError, false);
-    equal(result.text, JSON.stringify(output));
-    equal(JSON.parse(result.text), output);
-    equal(mock.calls[1]?.url, "https://api.monid.ai/v1/runs/ABC123");
+    assertEquals(result.isError, false);
+    assertEquals(result.text, JSON.stringify(output));
+    assertEquals(JSON.parse(result.text), output);
+    assertEquals(mock.calls[1]?.url, "https://api.monid.ai/v1/runs/ABC123");
   } finally { mock.restore(); }
 });
 
@@ -142,7 +142,7 @@ test("search and fetch execute concurrently in one model response", async () => 
     });
     const session = await host.openSession();
     await session.sendMessage("search and fetch");
-    equal(endpoints.sort(), ["/free/fetch", "/free/search"]);
+    assertEquals(endpoints.sort(), ["/free/fetch", "/free/search"]);
   } finally { globalThis.fetch = original; }
 });
 
@@ -151,11 +151,11 @@ test("cancellation stops polling promptly", async () => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 20);
   try {
-    const { rejects } = await import("yuke:test");
+    const { assertRejects } = await import("yuke:test");
     await using host = await createHost({ plugins: [{ folder }] });
     const session = await host.openSession();
-    await rejects(session.call("web_search", { query: "cancel" }, { signal: controller.signal }));
-    equal(mock.calls.length, 1);
+    await assertRejects(() => session.call("web_search", { query: "cancel" }, { signal: controller.signal }));
+    assertEquals(mock.calls.length, 1);
   } finally { clearTimeout(timer); mock.restore(); }
 });
 
@@ -172,8 +172,8 @@ test("fetch HTTP 200 errors preserve TinyFish error codes, status, URL, and retr
     const session = await host.openSession();
     for (const output of outputs) {
       const result = await session.call("web_fetch", { url: "https://example.com/" });
-      equal(result.isError, true);
-      equal(result.text, JSON.stringify(output));
+      assertEquals(result.isError, true);
+      assertEquals(result.text, JSON.stringify(output));
     }
   } finally { mock.restore(); }
 });
@@ -185,9 +185,9 @@ test("empty search results are a successful response", async () => {
     await using host = await createHost({ plugins: [{ folder }] });
     const session = await host.openSession();
     const result = await session.call("web_search", { query: "no matches" });
-    equal(result.isError, false);
-    equal(result.text, JSON.stringify(output));
-    equal(result.display, [{ kind: "markdown", text: "No results" }]);
+    assertEquals(result.isError, false);
+    assertEquals(result.text, JSON.stringify(output));
+    assertEquals(result.display, [{ kind: "markdown", text: "No results" }]);
   } finally { mock.restore(); }
 });
 
@@ -202,7 +202,7 @@ test("HTTP errors preserve complete details and Retry-After without retrying", a
     assert(result.text.includes("HTTP 429"));
     assert(result.text.includes("Retry-After: 60"));
     assert(result.text.includes(JSON.stringify(error)));
-    equal(mock.calls.length, 1);
+    assertEquals(mock.calls.length, 1);
   } finally { mock.restore(); }
 });
 
@@ -215,7 +215,7 @@ test("completed async provider failures preserve the upstream error body", async
     const result = await session.call("web_search", { query: "test" });
     assert(result.isError && result.text.includes("TinyFish HTTP 503"));
     assert(result.text.includes(JSON.stringify(provider)));
-    equal(mock.calls.length, 2);
+    assertEquals(mock.calls.length, 2);
   } finally { mock.restore(); }
 });
 
@@ -230,7 +230,7 @@ test("failed, blocked, stopped, and timed-out Monid runs never become successful
       assert(result.isError);
       assert(result.text.includes(JSON.stringify(job)));
     }
-    equal(mock.calls.length, jobs.length);
+    assertEquals(mock.calls.length, jobs.length);
   } finally { mock.restore(); }
 });
 
@@ -251,7 +251,7 @@ test("malformed JSON, envelopes, outputs, and unknown states are rejected", asyn
       const result = await session.call("web_search", { query: "test" });
       assert(result.isError, `response ${i} should fail`);
     }
-    equal(mock.calls.length, responses.length);
+    assertEquals(mock.calls.length, responses.length);
   } finally { mock.restore(); }
 });
 
@@ -269,9 +269,9 @@ test("search summarizes unique hosts in result order without changing model cont
     await using host = await createHost({ plugins: [{ folder }] });
     const session = await host.openSession();
     const result = await session.call("web_search", { query: "Rust async cancellation" });
-    equal(result.display, [{ kind: "markdown", text: "6 results (github.com, docs.rs, tokio.rs, +2 more)" }]);
-    equal(JSON.parse(result.text), output);
-    equal(result.isError, false);
+    assertEquals(result.display, [{ kind: "markdown", text: "6 results (github.com, docs.rs, tokio.rs, +2 more)" }]);
+    assertEquals(JSON.parse(result.text), output);
+    assertEquals(result.isError, false);
   } finally { mock.restore(); }
 });
 
@@ -285,11 +285,11 @@ test("search handles one result and unusable host fields without losing results"
     await using host = await createHost({ plugins: [{ folder }] });
     const session = await host.openSession();
     const one = await session.call("web_search", { query: "one" });
-    equal(one.display, [{ kind: "markdown", text: "1 result (example.com)" }]);
+    assertEquals(one.display, [{ kind: "markdown", text: "1 result (example.com)" }]);
     const missing = await session.call("web_search", { query: "missing hosts" });
-    equal(missing.display, [{ kind: "markdown", text: "5 results" }]);
-    equal(JSON.parse(missing.text), outputs[1]);
-    equal(missing.isError, false);
+    assertEquals(missing.display, [{ kind: "markdown", text: "5 results" }]);
+    assertEquals(JSON.parse(missing.text), outputs[1]);
+    assertEquals(missing.isError, false);
   } finally { mock.restore(); }
 });
 
@@ -312,9 +312,9 @@ test("fetch reports UTF-8 page bytes rather than characters or JSON size", async
     const session = await host.openSession();
     for (const [index, output] of outputs.entries()) {
       const result = await session.call("web_fetch", { url: "https://example.com/" });
-      equal(result.display, [{ kind: "markdown", text: expected[index] }]);
-      equal(JSON.parse(index === 4 ? await savedText(result.text) : result.text), output);
-      equal(result.isError, false);
+      assertEquals(result.display, [{ kind: "markdown", text: expected[index] }]);
+      assertEquals(JSON.parse(index === 4 ? await savedText(result.text) : result.text), output);
+      assertEquals(result.isError, false);
     }
   } finally { mock.restore(); }
 });
@@ -337,7 +337,7 @@ test("web calls keep query and URL headers with compact displays in the transcri
     const session = await host.openSession();
     await session.sendMessage("search and fetch");
     const calls = session.transcript.entries.filter((entry) => entry.kind === "tool");
-    equal(calls.map((entry) => [entry.hints, entry.display]), [
+    assertEquals(calls.map((entry) => [entry.hints, entry.display]), [
       [{ title: "Search", subject: { argument: "query", kind: "text" }, preview: "head" },
         [{ kind: "markdown", text: "1 result (example.com)" }]],
       [{ title: "Fetch", subject: { argument: "url", kind: "uri" }, preview: "head" },
@@ -356,10 +356,10 @@ test("the 50 KiB boundary keeps exact output and truncates one byte more", async
     await using host = await createHost({ plugins: [{ folder }] });
     const session = await host.openSession();
     const exact = await session.call("web_search", { query: "exact" });
-    equal(new TextEncoder().encode(exact.text).length, 51_200);
-    equal(exact.text, `{"results":[],"padding":"${padding}"}`);
+    assertEquals(new TextEncoder().encode(exact.text).length, 51_200);
+    assertEquals(exact.text, `{"results":[],"padding":"${padding}"}`);
     const over = await session.call("web_search", { query: "over" });
-    equal(await savedText(over.text), `{"results":[],"padding":"${padding}x"}`);
+    assertEquals(await savedText(over.text), `{"results":[],"padding":"${padding}x"}`);
   } finally { mock.restore(); }
 });
 
@@ -375,11 +375,11 @@ test("large upstream errors and per-page errors stay capped and retain full deta
     await using host = await createHost({ plugins: [{ folder }] });
     const session = await host.openSession();
     const upstream = await session.call("web_search", { query: "error" });
-    equal(upstream.isError, true);
-    equal(await savedText(upstream.text), `Monid HTTP 429 (Retry-After: 60): ${body}`);
+    assertEquals(upstream.isError, true);
+    assertEquals(await savedText(upstream.text), `Monid HTTP 429 (Retry-After: 60): ${body}`);
     const blocked = await session.call("web_fetch", { url: "https://example.com/" });
-    equal(blocked.isError, true);
-    equal(await savedText(blocked.text), JSON.stringify(page));
+    assertEquals(blocked.isError, true);
+    assertEquals(await savedText(blocked.text), JSON.stringify(page));
   } finally { mock.restore(); }
 });
 
@@ -401,10 +401,10 @@ test("parallel large web results enter model context only as bounded previews", 
     await session.sendMessage("search and fetch");
     const results = host.requests[1]?.messages.filter(message => message.role === "tool");
     assert(results);
-    equal(results.length, 2);
+    assertEquals(results.length, 2);
     const search = JSON.parse(await savedText(results[0]!.text));
     const fetch = JSON.parse(await savedText(results[1]!.text));
-    equal([search.marker, fetch.marker], ["search-end", "fetch-end"]);
-    equal([search.results[0].snippet.length, fetch.results[0].text.length], [140_000, 2_500_000]);
+    assertEquals([search.marker, fetch.marker], ["search-end", "fetch-end"]);
+    assertEquals([search.results[0].snippet.length, fetch.results[0].text.length], [140_000, 2_500_000]);
   } finally { mock.restore(); }
 });
