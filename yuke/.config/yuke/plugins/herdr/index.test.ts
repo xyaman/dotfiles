@@ -42,7 +42,7 @@ test("reports idle, working, blocked, and releases its label on exit", async () 
         session(s) {
           s.tools.add({
             name: "ask_test", description: "Ask", concurrency: "serial",
-            parameters: { type: "object", properties: {} },
+            inputSchema: { type: "object", properties: {} },
             async execute(_, { signal }) {
               await s.ask({ questions: [{ id: "continue", header: "Confirm", question: "Continue?", options: [], other: true }] }, { signal });
               return "done";
@@ -51,7 +51,7 @@ test("reports idle, working, blocked, and releases its label on exit", async () 
         },
       }],
       replies: [reply.toolCalls([{ name: "ask_test", args: {} }]), reply.text("done")],
-      answer: () => new Promise(resolve => { answer = resolve; }),
+      onQuestion: () => new Promise(resolve => { answer = resolve; }),
     });
     try {
       await waitFor(() => requests.some(r => r.params.state === "idle"));

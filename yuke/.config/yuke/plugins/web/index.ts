@@ -96,7 +96,7 @@ export function session(s: SessionContext): void {
     name: "web_search",
     description: "Live web search via TinyFish's free endpoint. Returns at most 50 KiB. Small responses are JSON. Truncated responses include a path to the full output. Use web_fetch for page text.",
     concurrency: "parallel",
-    parameters: {
+    inputSchema: {
       type: "object",
       properties: { query: { type: "string", description: "Search query." } },
       required: ["query"],
@@ -127,7 +127,7 @@ export function session(s: SessionContext): void {
     name: "web_fetch",
     description: "Fetch an http(s) URL as Markdown via TinyFish's free endpoint. Returns at most 50 KiB. Small responses are JSON. Truncated responses include a path to the full output.",
     concurrency: "parallel",
-    parameters: {
+    inputSchema: {
       type: "object",
       properties: { url: { type: "string", description: "http(s) URL." } },
       required: ["url"],
