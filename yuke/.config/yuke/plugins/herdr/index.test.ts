@@ -28,6 +28,7 @@ test("reports idle, working, blocked, and releases its label on exit", async () 
     }
   };
   const serving = serve();
+  // The reports travel over a unix socket, so waitForSettled cannot see them. Poll until they arrive.
   const waitFor = async (predicate: () => boolean) => {
     for (let i = 0; i < 300 && !predicate(); i++) await new Promise(resolve => setTimeout(resolve, 5));
     assert(predicate(), "report did not arrive");
@@ -49,7 +50,7 @@ test("reports idle, working, blocked, and releases its label on exit", async () 
           });
         },
       }],
-      replies: [reply.toolCall("ask_test", {}), reply.text("done")],
+      replies: [reply.toolCalls([{ name: "ask_test", args: {} }]), reply.text("done")],
       answer: () => new Promise(resolve => { answer = resolve; }),
     });
     try {

@@ -1,5 +1,5 @@
 import { readTextFile } from "yuke:fs";
-import { assert, createHost, assertEquals, test } from "yuke:test";
+import { assert, assertEquals, assertRejects, createHost, reply, test } from "yuke:test";
 
 const folder = import.meta.dirname!;
 
@@ -132,7 +132,6 @@ test("search and fetch execute concurrently in one model response", async () => 
     return Response.json(completed({ results: [{ title: "Complete", text: "Full page" }] }));
   };
   try {
-    const { reply } = await import("yuke:test");
     await using host = await createHost({
       plugins: [{ folder }],
       replies: [reply.toolCalls([
@@ -149,9 +148,9 @@ test("search and fetch execute concurrently in one model response", async () => 
 test("cancellation stops polling promptly", async () => {
   const mock = mockFetch([{ status: "RUNNING", runId: "ABC123" }]);
   const controller = new AbortController();
+  // A real timer aborts the call while the plugin sleeps between polls. waitForSettled cannot see that sleep.
   const timer = setTimeout(() => controller.abort(), 20);
   try {
-    const { assertRejects } = await import("yuke:test");
     await using host = await createHost({ plugins: [{ folder }] });
     const session = await host.openSession();
     await assertRejects(() => session.call("web_search", { query: "cancel" }, { signal: controller.signal }));
@@ -320,7 +319,6 @@ test("fetch reports UTF-8 page bytes rather than characters or JSON size", async
 });
 
 test("web calls keep query and URL headers with compact displays in the transcript", async () => {
-  const { reply } = await import("yuke:test");
   const mock = mockFetch([
     completed({ results: [{ url: "https://example.com/" }] }),
     completed({ results: [{ text: "Page" }] }),
@@ -329,8 +327,8 @@ test("web calls keep query and URL headers with compact displays in the transcri
     await using host = await createHost({
       plugins: [{ folder }],
       replies: [
-        reply.toolCall("web_search", { query: "test query" }),
-        reply.toolCall("web_fetch", { url: "https://example.com/" }),
+        reply.toolCalls([{ name: "web_search", args: { query: "test query" } }]),
+        reply.toolCalls([{ name: "web_fetch", args: { url: "https://example.com/" } }]),
         reply.text("done"),
       ],
     });
@@ -384,7 +382,6 @@ test("large upstream errors and per-page errors stay capped and retain full deta
 });
 
 test("parallel large web results enter model context only as bounded previews", async () => {
-  const { reply } = await import("yuke:test");
   const mock = mockFetch([
     completed({ results: [{ snippet: "search ".repeat(20_000) }], marker: "search-end" }),
     completed({ results: [{ text: "page ".repeat(500_000) }], marker: "fetch-end" }),
