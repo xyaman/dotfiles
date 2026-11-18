@@ -101,7 +101,7 @@ export function report(ctx: PluginContext, path: string, pane: string): Cleanup 
   ctx.addListener("session.update", ({ sessionId, update }) => {
     const session = sessions.get(sessionId);
     if (!session) return;
-    switch (update.sessionUpdate) {
+    switch (update.kind) {
       case "state": session.state = update.state; break;
       case "interactionRequested": session.interactions.add(update.interactionId); break;
       case "interactionClosed": session.interactions.delete(update.interactionId); break;
